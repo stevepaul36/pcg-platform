@@ -1,0 +1,52 @@
+# infra/docker/Dockerfile.api
+# Multi-stage build — final image ~180 MB with only production deps
+
+FROM node:20-alpine AS base
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# ── Install all dependencies ──────────────────────────────────────────────────
+
+FROM base AS deps
+COPY package.json package-lock.json* turbo.json ./
+COPY apps/api/package.json     ./apps/api/
+COPY packages/shared/package.json ./packages/shared/
+RUN npm ci
+
+# ── Build shared package + API ────────────────────────────────────────────────
+
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules 2>/dev/null || true
+COPY . .
+RUN npx turbo run build --filter=@pcg/shared
+RUN npx turbo run build --filter=@pcg/api
+
+# ── Generate Prisma client ────────────────────────────────────────────────────
+
+FROM builder AS prisma
+RUN cd apps/api && npx prisma generate
+
+# ── Minimal production image ──────────────────────────────────────────────────
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser  --system --uid  1001 apiuser
+
+# Copy everything needed to run
+COPY --from=prisma  --chown=apiuser:nodejs /app/node_modules            ./node_modules
+COPY --from=prisma  --chown=apiuser:nodejs /app/apps/api/dist           ./apps/api/dist
+COPY --from=prisma  --chown=apiuser:nodejs /app/apps/api/node_modules   ./apps/api/node_modules
+COPY --from=prisma  --chown=apiuser:nodejs /app/apps/api/prisma         ./apps/api/prisma
+COPY --from=prisma  --chown=apiuser:nodejs /app/apps/api/package.json   ./apps/api/package.json
+COPY --from=builder --chown=apiuser:nodejs /app/packages/shared/dist    ./packages/shared/dist
+COPY --from=builder --chown=apiuser:nodejs /app/packages/shared/package.json ./packages/shared/package.json
+
+USER apiuser
+EXPOSE 4000
+ENV NODE_ENV=production
+
+# Run Prisma migrations then start the server
+CMD ["sh", "-c", "cd apps/api && npx prisma migrate deploy && node dist/server.js"]
