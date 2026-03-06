@@ -8,6 +8,7 @@ import {
   ChevronDown, ChevronRight, Table2, Bell, Hammer,
   Package, Clock, Globe, Cpu, ShieldAlert,
   Flame, FileText, ListTodo, UserCog, Rocket, DollarSign,
+  Building2, Gauge,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -93,7 +94,15 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Billing",
     items: [
-      { id: "budgets", label: "Budgets & Alerts", icon: DollarSign },
+      { id: "billingdash", label: "Billing Dashboard", icon: DollarSign },
+      { id: "budgets",     label: "Budgets & Alerts",  icon: DollarSign },
+      { id: "quotas",      label: "Quotas & Limits",   icon: Gauge },
+    ],
+  },
+  {
+    label: "Administration",
+    items: [
+      { id: "resourcemgr", label: "Resource Manager", icon: Building2 },
     ],
   },
 ];

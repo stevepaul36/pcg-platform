@@ -40,6 +40,9 @@ import { ServiceAccountsPanel } from "./ServiceAccounts";
 import { BudgetsPanelPanel } from "./BudgetsPanel";
 import { WorkflowsPanelPanel } from "./WorkflowsPanel";
 import { CloudDeployPanelPanel } from "./CloudDeployPanel";
+import { BillingDashboard } from "./BillingDashboard";
+import { QuotasPanel } from "./QuotasPanel";
+import { ResourceManagerPanel } from "./ResourceManager";
 import { Clock, DollarSign, Server, ChevronLeft, ChevronRight } from "lucide-react";
 
 export function AppShell() {
@@ -110,6 +113,9 @@ export function AppShell() {
       case "budgets":    return <BudgetsPanelPanel />;
       case "workflows":  return <WorkflowsPanelPanel />;
       case "deploy":     return <CloudDeployPanelPanel />;
+      case "billingdash": return <BillingDashboard />;
+      case "quotas":     return <QuotasPanel />;
+      case "resourcemgr": return <ResourceManagerPanel />;
       default:           return <Dashboard />;
     }
   };

@@ -29,6 +29,7 @@ model User {
   refreshTokens   RefreshToken[]
   votes           UserVote[]
   passwordResets  PasswordReset[]
+  organizations   Organization[]
 
   @@index([email])
 }
@@ -116,6 +117,10 @@ model Project {
   budgets        BillingBudget[]
   workflows      Workflow[]
   pipelines      DeliveryPipeline[]
+  usageRecords   UsageRecord[]
+  costSummaries  CostSummary[]
+  quotas         ResourceQuota[]
+  resourceStates ResourceState[]
 
   @@index([ownerId])
 }
@@ -971,4 +976,100 @@ model DeliveryPipeline {
   project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   @@unique([projectId, name])
   @@index([projectId])
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// v6.1 — Enterprise Features: Hierarchy, Billing Engine, Quotas
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Organization Hierarchy ────────────────────────────────────────────────────
+model Organization {
+  id             String   @id @default(cuid())
+  name           String   @unique
+  displayName    String
+  domain         String   @default("")
+  ownerId        String
+  createdAt      DateTime @default(now())
+  owner          User     @relation(fields: [ownerId], references: [id])
+  folders        Folder[]
+  @@index([ownerId])
+}
+
+model Folder {
+  id             String       @id @default(cuid())
+  name           String
+  displayName    String
+  orgId          String
+  parentId       String?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent         Folder?      @relation("FolderTree", fields: [parentId], references: [id])
+  children       Folder[]     @relation("FolderTree")
+  @@unique([orgId, name])
+  @@index([orgId])
+  @@index([parentId])
+}
+
+// ── Billing Engine ────────────────────────────────────────────────────────────
+model UsageRecord {
+  id             String   @id @default(cuid())
+  projectId      String
+  resourceType   String   // "VM" | "GKE" | "STORAGE" | "SQL" | etc.
+  resourceId     String
+  resourceName   String
+  usageHours     Float    @default(0)
+  costPerHour    Float    @default(0)
+  totalCost      Float    @default(0)
+  periodStart    DateTime @default(now())
+  periodEnd      DateTime?
+  status         String   @default("ACTIVE") // "ACTIVE" | "STOPPED" | "TERMINATED"
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId])
+  @@index([resourceType])
+  @@index([periodStart])
+}
+
+model CostSummary {
+  id             String   @id @default(cuid())
+  projectId      String
+  date           DateTime @default(now())
+  computeCost    Float    @default(0)
+  storageCost    Float    @default(0)
+  networkCost    Float    @default(0)
+  databaseCost   Float    @default(0)
+  aiCost         Float    @default(0)
+  otherCost      Float    @default(0)
+  totalCost      Float    @default(0)
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, date])
+  @@index([projectId])
+}
+
+// ── Quota System ──────────────────────────────────────────────────────────────
+model ResourceQuota {
+  id             String   @id @default(cuid())
+  projectId      String
+  resourceType   String   // "VM" | "GKE_CLUSTER" | "BUCKET" | "SQL_INSTANCE" | etc.
+  limitValue     Int
+  currentUsage   Int      @default(0)
+  region         String   @default("global")
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, resourceType, region])
+  @@index([projectId])
+}
+
+// ── Resource Lifecycle Tracking ───────────────────────────────────────────────
+model ResourceState {
+  id             String   @id @default(cuid())
+  projectId      String
+  resourceType   String
+  resourceId     String
+  status         String
+  previousStatus String?
+  message        String   @default("")
+  changedAt      DateTime @default(now())
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId])
+  @@index([resourceId])
+  @@index([changedAt])
 }

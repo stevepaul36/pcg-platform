@@ -652,3 +652,23 @@ export const DeployApi = {
   create: (pid: string, p: any) => apiFetch<any>(`/deploy/${pid}`, { method: "POST", body: JSON.stringify(p) }),
   delete: (pid: string, id: string) => apiFetch<null>(`/deploy/${pid}/${id}`, { method: "DELETE" }),
 };
+
+// ═══ Enterprise: Billing, Quotas, Lifecycle, Organizations ════════════════════
+export const BillingApi = {
+  costs: (pid: string) => apiFetch<any>(`/billing/${pid}/costs`),
+  summary: (pid: string) => apiFetch<any>(`/billing/${pid}/summary`),
+};
+export const QuotasApi = {
+  list: (pid: string) => apiFetch<any[]>(`/quotas/${pid}`),
+};
+export const LifecycleApi = {
+  events: (pid: string, limit = 50) => apiFetch<any[]>(`/lifecycle/${pid}/events?limit=${limit}`),
+  history: (pid: string, rid: string) => apiFetch<any[]>(`/lifecycle/${pid}/resource/${rid}`),
+};
+export const OrganizationsApi = {
+  list: () => apiFetch<any[]>("/organizations"),
+  create: (p: any) => apiFetch<any>("/organizations", { method: "POST", body: JSON.stringify(p) }),
+  delete: (orgId: string) => apiFetch<null>(`/organizations/${orgId}`, { method: "DELETE" }),
+  listFolders: (orgId: string) => apiFetch<any[]>(`/organizations/${orgId}/folders`),
+  createFolder: (orgId: string, p: any) => apiFetch<any>(`/organizations/${orgId}/folders`, { method: "POST", body: JSON.stringify(p) }),
+};

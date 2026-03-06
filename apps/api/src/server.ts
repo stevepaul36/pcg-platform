@@ -43,6 +43,10 @@ import { serviceaccountsRouter } from "./routes/serviceaccounts";
 import { budgetsRouter }      from "./routes/budgets";
 import { workflowsRouter }    from "./routes/workflows";
 import { deployRouter }       from "./routes/deploy";
+import { billingRouter }      from "./routes/billing";
+import { quotasRouter }       from "./routes/quotas";
+import { lifecycleRouter }    from "./routes/lifecycle";
+import { organizationsRouter } from "./routes/organizations";
 import { errorHandler }        from "./middleware/errorHandler";
 import { requestId }           from "./middleware/requestId";
 import { requestTimeout }      from "./middleware/timeout";
@@ -145,6 +149,10 @@ app.use("/api/v1/serviceaccounts", serviceaccountsRouter);
 app.use("/api/v1/budgets",       budgetsRouter);
 app.use("/api/v1/workflows",     workflowsRouter);
 app.use("/api/v1/deploy",        deployRouter);
+app.use("/api/v1/billing",       billingRouter);
+app.use("/api/v1/quotas",        quotasRouter);
+app.use("/api/v1/lifecycle",     lifecycleRouter);
+app.use("/api/v1/organizations", organizationsRouter);
 
 // 404 fallthrough
 app.use((req, res) =>
