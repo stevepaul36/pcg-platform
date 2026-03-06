@@ -226,12 +226,3 @@ if (require.main === module) {
   });
 }
 
-
-const TICK_INTERVAL_MS = 10_000;
-const BILLING_FRACTION = TICK_INTERVAL_MS / (1_000 * 3_600);  // fraction of 1 hour
-const HISTORY_WINDOW   = 30;                                   // sparkline points
-
-let lastTickAt:   Date | null = null;
-let isRunning                 = false;
-
-// (new implementation above replaces this section)
