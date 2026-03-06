@@ -1,0 +1,974 @@
+// apps/api/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String
+  passwordHash    String
+  avatarUrl       String?
+  // Subscription
+  plan            String    @default("free")  // "free" | "student" | "personal"
+  emailDomain     String?                     // detected at registration
+  subscriptionEnd DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  projects        Project[]
+  sessions        Session[]
+  refreshTokens   RefreshToken[]
+  votes           UserVote[]
+  passwordResets  PasswordReset[]
+
+  @@index([email])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// New: rotating refresh tokens — separate from short-lived access-token sessions
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?           // null = still valid
+  createdAt DateTime  @default(now())
+  ipAddress String?
+  userAgent String?
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ── Projects ──────────────────────────────────────────────────────────────────
+
+model Project {
+  id            String   @id @default(cuid())
+  name          String   @unique   // e.g. "pcg-demo-491a3b7f"
+  displayName   String
+  ownerId       String
+  totalSpendUSD Float    @default(0)  // lifetime accumulated spend in USD
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  owner          User              @relation(fields: [ownerId], references: [id])
+  vms            VMInstance[]
+  buckets        StorageBucket[]
+  sqlInstances   SQLInstance[]
+  iamMembers     IAMMember[]
+  activityLogs   ActivityLog[]
+  bqDatasets     BQDataset[]
+  pubsubTopics   PubSubTopic[]
+  pubsubSubs     PubSubSubscription[]
+  functions      CloudFunction[]
+  gkeClusters    GKECluster[]
+  cloudRunSvcs   CloudRunService[]
+  vpcNetworks    VPCNetwork[]
+  loadBalancers  LoadBalancer[]
+  dnsZones       CloudDNSZone[]
+  secrets        SecretManagerSecret[]
+  kmsKeyRings    KMSKeyRing[]
+  vertexModels   VertexModel[]
+  vertexEndpoints VertexEndpoint[]
+  dataflowJobs   DataflowJob[]
+  alertPolicies  MonitoringAlertPolicy[]
+  uptimeChecks   UptimeCheck[]
+  buildTriggers  CloudBuildTrigger[]
+  artifactRepos  ArtifactRepo[]
+  schedulerJobs  SchedulerJob[]
+  apiGateways    ApiGateway[]
+  memorystores   MemorystoreInstance[]
+  armorPolicies  CloudArmorPolicy[]
+  firestoreDbs   FirestoreDatabase[]
+  logSinks       LogSink[]
+  taskQueues     TaskQueue[]
+  dataprocClusters DataprocCluster[]
+  cdnConfigs     CDNConfig[]
+  firewallRules  FirewallRule[]
+  serviceAccounts ServiceAccount[]
+  budgets        BillingBudget[]
+  workflows      Workflow[]
+  pipelines      DeliveryPipeline[]
+
+  @@index([ownerId])
+}
+
+// ── Compute ───────────────────────────────────────────────────────────────────
+
+model VMInstance {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String
+  zone           String
+  region         String
+  machineType    String
+  vcpus          Int
+  ramGb          Float
+  diskGb         Int
+  diskType       String
+  osImage        String
+  preemptible    Boolean  @default(false)
+  tags           String[]
+  internalIp     String
+  externalIp     String
+  status         String   @default("PROVISIONING")
+  // PROVISIONING → RUNNING → STOPPING → TERMINATED
+  // RUNNING → STOPPED | SUSPENDED → RUNNING
+  hourlyCost     Float
+  diskHourlyCost Float
+  cpuUsage       Float    @default(0)
+  ramUsage       Float    @default(0)
+  netIn          Float    @default(0)
+  netOut         Float    @default(0)
+  uptimeSec      Int      @default(0)
+  cpuHistory     Float[]
+  ramHistory     Float[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@index([status])
+}
+
+// ── Storage ───────────────────────────────────────────────────────────────────
+
+model StorageBucket {
+  id             String          @id @default(cuid())
+  projectId      String
+  name           String          @unique  // globally unique like real GCS
+  location       String
+  storageClass   String
+  versioning     Boolean         @default(false)
+  totalSizeBytes BigInt          @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  objects        StorageObject[]
+
+  @@index([projectId])
+}
+
+model StorageObject {
+  id          String        @id @default(cuid())
+  bucketId    String
+  name        String
+  sizeBytes   BigInt
+  contentType String
+  etag        String
+  generation  String
+  uploadedAt  DateTime      @default(now())
+
+  bucket      StorageBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+  @@unique([bucketId, name])
+  @@index([bucketId])
+}
+
+// ── Cloud SQL ─────────────────────────────────────────────────────────────────
+
+model SQLInstance {
+  id               String   @id @default(cuid())
+  projectId        String
+  name             String
+  dbType           String
+  dbVersion        String
+  tier             String
+  region           String
+  storageGb        Int
+  highAvailability Boolean  @default(false)
+  backups          Boolean  @default(true)
+  status           String   @default("PENDING_CREATE")
+  privateIp        String
+  connectionName   String
+  hourlyCost       Float
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── IAM ───────────────────────────────────────────────────────────────────────
+
+model IAMMember {
+  id        String   @id @default(cuid())
+  projectId String
+  email     String
+  role      String
+  type      String   @default("user")
+  addedAt   DateTime @default(now())
+  addedBy   String
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, email, role])
+  @@index([projectId])
+  @@index([email])   // Added: used in requireProjectAccess IAM check
+}
+
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  projectId   String
+  type        String
+  description String
+  resourceId  String?
+  severity    String   @default("INFO")
+  user        String
+  metadata    Json     @default("{}")
+  timestamp   DateTime @default(now())
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([timestamp])
+  @@index([type])
+}
+
+// ── Announcements ─────────────────────────────────────────────────────────────
+
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String
+  body        String
+  type        String    @default("info")  // "info" | "warning" | "feature" | "maintenance"
+  pinned      Boolean   @default(false)
+  publishedAt DateTime  @default(now())
+  expiresAt   DateTime?
+  authorEmail String
+
+  @@index([publishedAt])
+  @@index([pinned])
+}
+
+// ── Improvement Tracker ───────────────────────────────────────────────────────
+
+model Improvement {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  status      String    @default("planned")  // "planned" | "in_progress" | "completed" | "cancelled"
+  priority    String    @default("medium")   // "low" | "medium" | "high" | "critical"
+  category    String    @default("feature")  // "feature" | "bug" | "performance" | "ux"
+  votes       Int       @default(0)
+  authorEmail String    @default("")         // New: track who submitted
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  userVotes   UserVote[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([votes])
+}
+
+// New: per-user votes — prevents duplicate voting
+model UserVote {
+  id            String      @id @default(cuid())
+  userId        String
+  improvementId String
+  createdAt     DateTime    @default(now())
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  improvement   Improvement @relation(fields: [improvementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, improvementId])   // compound unique enforces one vote per user
+  @@index([improvementId])
+}
+
+// ── Password Reset ────────────────────────────────────────────────────────────
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?          // null = not yet used
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ── BigQuery ──────────────────────────────────────────────────────────────────
+
+model BQDataset {
+  id          String      @id @default(cuid())
+  projectId   String
+  name        String
+  location    String      @default("US")
+  description String      @default("")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tables      BQTable[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model BQTable {
+  id          String    @id @default(cuid())
+  datasetId   String
+  name        String
+  schema      Json      @default("[]")
+  rowCount    BigInt    @default(0)
+  sizeBytes   BigInt    @default(0)
+  tableType   String    @default("TABLE")  // TABLE | VIEW | EXTERNAL
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  dataset     BQDataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@unique([datasetId, name])
+  @@index([datasetId])
+}
+
+// ── Pub/Sub ───────────────────────────────────────────────────────────────────
+
+model PubSubTopic {
+  id              String            @id @default(cuid())
+  projectId       String
+  name            String
+  messageCount    Int               @default(0)
+  createdAt       DateTime          @default(now())
+
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subscriptions   PubSubSubscription[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model PubSubSubscription {
+  id              String      @id @default(cuid())
+  topicId         String
+  projectId       String
+  name            String
+  ackDeadline     Int         @default(10)
+  messageCount    Int         @default(0)
+  createdAt       DateTime    @default(now())
+
+  topic           PubSubTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([topicId])
+  @@index([projectId])
+}
+
+// ── Cloud Functions ───────────────────────────────────────────────────────────
+
+model CloudFunction {
+  id           String    @id @default(cuid())
+  projectId    String
+  name         String
+  runtime      String    // nodejs20, python311, go121, java17
+  region       String
+  entryPoint   String
+  trigger      String    // HTTP | PUBSUB | STORAGE
+  status       String    @default("ACTIVE")  // ACTIVE | DEPLOYING | OFFLINE | FAILED
+  invocations  Int       @default(0)
+  avgDurationMs Int      @default(0)
+  memoryMb     Int       @default(256)
+  timeoutSec   Int       @default(60)
+  hourlyCost   Float     @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── GKE ───────────────────────────────────────────────────────────────────────
+
+model GKECluster {
+  id             String      @id @default(cuid())
+  projectId      String
+  name           String
+  zone           String
+  version        String      @default("1.29")
+  nodeCount      Int         @default(3)
+  machineType    String      @default("e2-medium")
+  diskGb         Int         @default(100)
+  status         String      @default("PROVISIONING")  // PROVISIONING | RUNNING | RECONCILING | STOPPING | ERROR
+  endpoint       String
+  hourlyCost     Float
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  project        Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Cloud Run ─────────────────────────────────────────────────────────────────
+
+model CloudRunService {
+  id             String    @id @default(cuid())
+  projectId      String
+  name           String
+  region         String
+  image          String
+  cpu            String    @default("1")
+  memoryMb       Int       @default(512)
+  minInstances   Int       @default(0)
+  maxInstances   Int       @default(100)
+  status         String    @default("DEPLOYING")  // DEPLOYING | ACTIVE | FAILED
+  url            String
+  requestCount   Int       @default(0)
+  hourlyCost     Float     @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Networking ────────────────────────────────────────────────────────────────
+
+model VPCNetwork {
+  id          String    @id @default(cuid())
+  projectId   String
+  name        String
+  subnet      String
+  region      String
+  mode        String    @default("AUTO")  // AUTO | CUSTOM
+  createdAt   DateTime  @default(now())
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model LoadBalancer {
+  id          String    @id @default(cuid())
+  projectId   String
+  name        String
+  type        String    // HTTP | HTTPS | TCP | UDP
+  region      String    @default("global")
+  ip          String
+  backends    Int       @default(1)
+  status      String    @default("ACTIVE")
+  hourlyCost  Float     @default(0.025)
+  createdAt   DateTime  @default(now())
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model CloudDNSZone {
+  id          String    @id @default(cuid())
+  projectId   String
+  name        String
+  dnsName     String
+  visibility  String    @default("public")  // public | private
+  recordCount Int       @default(2)
+  createdAt   DateTime  @default(now())
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Secret Manager ────────────────────────────────────────────────────────────
+
+model SecretManagerSecret {
+  id          String    @id @default(cuid())
+  projectId   String
+  name        String
+  replication String    @default("automatic")
+  versions    Int       @default(1)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Cloud KMS ─────────────────────────────────────────────────────────────────
+
+model KMSKeyRing {
+  id          String    @id @default(cuid())
+  projectId   String
+  name        String
+  location    String    @default("global")
+  createdAt   DateTime  @default(now())
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  keys        KMSKey[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model KMSKey {
+  id           String     @id @default(cuid())
+  keyRingId    String
+  name         String
+  purpose      String     @default("ENCRYPT_DECRYPT")  // ENCRYPT_DECRYPT | SIGN_VERIFY | ASYMMETRIC_DECRYPT
+  algorithm    String     @default("GOOGLE_SYMMETRIC_ENCRYPTION")
+  rotationDays Int        @default(90)
+  state        String     @default("ENABLED")  // ENABLED | DISABLED | DESTROYED
+  createdAt    DateTime   @default(now())
+
+  keyRing      KMSKeyRing @relation(fields: [keyRingId], references: [id], onDelete: Cascade)
+
+  @@unique([keyRingId, name])
+  @@index([keyRingId])
+}
+
+// ── Vertex AI ─────────────────────────────────────────────────────────────────
+
+model VertexModel {
+  id            String    @id @default(cuid())
+  projectId     String
+  name          String
+  displayName   String
+  framework     String    // TensorFlow | PyTorch | scikit-learn | XGBoost
+  region        String    @default("us-central1")
+  status        String    @default("DEPLOYED")  // UPLOADING | DEPLOYED | FAILED
+  versionId     String    @default("1")
+  createdAt     DateTime  @default(now())
+
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  endpoints     VertexEndpoint[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model VertexEndpoint {
+  id           String      @id @default(cuid())
+  projectId    String
+  modelId      String
+  name         String
+  region       String
+  status       String      @default("DEPLOYING")
+  requestCount Int         @default(0)
+  hourlyCost   Float       @default(0.1)
+  createdAt    DateTime    @default(now())
+
+  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  model        VertexModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([modelId])
+}
+
+// ── Dataflow ──────────────────────────────────────────────────────────────────
+
+model DataflowJob {
+  id             String    @id @default(cuid())
+  projectId      String
+  name           String
+  template       String    // e.g. "Pub/Sub to BigQuery"
+  region         String
+  status         String    @default("JOB_STATE_RUNNING")  // JOB_STATE_RUNNING | JOB_STATE_DONE | JOB_STATE_FAILED | JOB_STATE_CANCELLED
+  workers        Int       @default(1)
+  maxWorkers     Int       @default(10)
+  bytesProcessed BigInt    @default(0)
+  hourlyCost     Float
+  startedAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+// ── Cloud Monitoring ──────────────────────────────────────────────────────────
+
+model MonitoringAlertPolicy {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String
+  displayName    String
+  conditionType  String   // "METRIC_THRESHOLD" | "METRIC_ABSENCE" | "UPTIME_CHECK"
+  metricType     String   // e.g. "compute.googleapis.com/instance/cpu/utilization"
+  threshold      Float    @default(0.8)
+  duration       String   @default("60s")
+  enabled        Boolean  @default(true)
+  notifyEmails   String[] // notification channels
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model UptimeCheck {
+  id             String   @id @default(cuid())
+  projectId      String
+  displayName    String
+  monitoredUrl   String
+  checkInterval  String   @default("60s")  // "60s" | "300s" | "600s" | "900s"
+  timeout        String   @default("10s")
+  regions        String[] // e.g. ["USA", "EUROPE", "ASIA_PACIFIC"]
+  status         String   @default("ACTIVE") // "ACTIVE" | "PAUSED"
+  lastCheckAt    DateTime?
+  lastStatus     String   @default("OK") // "OK" | "FAILING" | "UNKNOWN"
+  createdAt      DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId])
+}
+
+// ── Cloud Build ───────────────────────────────────────────────────────────────
+
+model CloudBuildTrigger {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String
+  description    String   @default("")
+  repoSource     String   // e.g. "github.com/user/repo"
+  branchPattern  String   @default("^main$")
+  buildSteps     String[] // e.g. ["docker build", "docker push", "gke deploy"]
+  substitutions  Json     @default("{}")
+  status         String   @default("ACTIVE") // "ACTIVE" | "DISABLED"
+  lastBuildAt    DateTime?
+  lastBuildStatus String  @default("NONE") // "NONE" | "SUCCESS" | "FAILURE" | "WORKING" | "QUEUED"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Artifact Registry ─────────────────────────────────────────────────────────
+
+model ArtifactRepo {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String
+  format         String   // "DOCKER" | "NPM" | "PYTHON" | "MAVEN" | "APT" | "GO"
+  location       String
+  description    String   @default("")
+  sizeBytes      BigInt   @default(0)
+  packageCount   Int      @default(0)
+  cleanupPolicy  String   @default("KEEP_ALL") // "KEEP_ALL" | "KEEP_RECENT_10" | "KEEP_RECENT_50"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Cloud Scheduler ───────────────────────────────────────────────────────────
+
+model SchedulerJob {
+  id             String    @id @default(cuid())
+  projectId      String
+  name           String
+  description    String    @default("")
+  schedule       String    // cron expression e.g. "*/5 * * * *"
+  timezone       String    @default("UTC")
+  targetType     String    // "HTTP" | "PUBSUB" | "APP_ENGINE"
+  targetUri      String    // URL or topic name
+  httpMethod     String    @default("POST")
+  status         String    @default("ENABLED") // "ENABLED" | "PAUSED" | "DISABLED"
+  lastRunAt      DateTime?
+  lastRunStatus  String    @default("NONE") // "NONE" | "SUCCESS" | "FAILED"
+  retryCount     Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── API Gateway ───────────────────────────────────────────────────────────────
+
+model ApiGateway {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String
+  displayName    String
+  backendUrl     String   // target backend service URL
+  region         String
+  protocol       String   @default("HTTPS") // "HTTP" | "HTTPS" | "GRPC"
+  authType       String   @default("API_KEY") // "API_KEY" | "JWT" | "NONE"
+  rateLimitRpm   Int      @default(1000) // requests per minute
+  status         String   @default("ACTIVE") // "ACTIVE" | "CREATING" | "DISABLED"
+  requestCount   BigInt   @default(0)
+  gatewayUrl     String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Memorystore ───────────────────────────────────────────────────────────────
+
+model MemorystoreInstance {
+  id                String   @id @default(cuid())
+  projectId         String
+  name              String
+  engine            String   // "REDIS" | "MEMCACHED"
+  version           String   // e.g. "REDIS_7_0", "MEMCACHE_1_6"
+  tier              String   // "BASIC" | "STANDARD_HA"
+  memorySizeGb      Int
+  region            String
+  host              String
+  port              Int      @default(6379)
+  status            String   @default("CREATING") // "CREATING" | "READY" | "UPDATING" | "DELETING" | "FAILED"
+  highAvailability  Boolean  @default(false)
+  hourlyCost        Float
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Cloud Armor ───────────────────────────────────────────────────────────────
+
+model CloudArmorPolicy {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String
+  description    String   @default("")
+  type           String   @default("CLOUD_ARMOR") // "CLOUD_ARMOR" | "CLOUD_ARMOR_EDGE"
+  defaultAction  String   @default("allow") // "allow" | "deny(403)"
+  rules          Json     @default("[]") // Array of {priority, action, match, description}
+  adaptiveProtection Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// v6.0 — 10 New GCP Services
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Firestore ─────────────────────────────────────────────────────────────────
+model FirestoreDatabase {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String   @default("(default)")
+  type           String   @default("NATIVE")  // "NATIVE" | "DATASTORE"
+  locationId     String
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Cloud Logging ─────────────────────────────────────────────────────────────
+model LogSink {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String
+  destination    String   // "bigquery.googleapis.com/..." | "storage.googleapis.com/..."
+  filter         String   @default("")
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Cloud Tasks ───────────────────────────────────────────────────────────────
+model TaskQueue {
+  id                 String   @id @default(cuid())
+  projectId          String
+  name               String
+  region             String
+  rateLimitPerSecond Float    @default(500)
+  maxConcurrent      Int      @default(1000)
+  retryMaxAttempts   Int      @default(3)
+  taskCount          Int      @default(0)
+  status             String   @default("RUNNING") // "RUNNING" | "PAUSED"
+  createdAt          DateTime @default(now())
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Dataproc ──────────────────────────────────────────────────────────────────
+model DataprocCluster {
+  id             String    @id @default(cuid())
+  projectId      String
+  name           String
+  region         String
+  masterType     String    @default("n1-standard-4")
+  workerType     String    @default("n1-standard-2")
+  workerCount    Int       @default(2)
+  imageVersion   String    @default("2.1-debian11")
+  status         String    @default("CREATING") // "CREATING" | "RUNNING" | "STOPPED" | "ERROR" | "DELETING"
+  hourlyCost     Float
+  createdAt      DateTime  @default(now())
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Cloud CDN ─────────────────────────────────────────────────────────────────
+model CDNConfig {
+  id               String   @id @default(cuid())
+  projectId        String
+  name             String
+  originUrl        String
+  cacheMode        String   @default("CACHE_ALL_STATIC") // "CACHE_ALL_STATIC" | "USE_ORIGIN_HEADERS" | "FORCE_CACHE_ALL"
+  defaultTtlSec    Int      @default(3600)
+  maxTtlSec        Int      @default(86400)
+  negativeCaching  Boolean  @default(false)
+  compressionMode  String   @default("AUTOMATIC")
+  enabled          Boolean  @default(true)
+  requestCount     BigInt   @default(0)
+  cacheHitRatio    Float    @default(0)
+  createdAt        DateTime @default(now())
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Firewall Rules ────────────────────────────────────────────────────────────
+model FirewallRule {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String
+  network        String   @default("default")
+  direction      String   // "INGRESS" | "EGRESS"
+  action         String   // "ALLOW" | "DENY"
+  priority       Int      @default(1000)
+  sourceRanges   String[] // e.g. ["0.0.0.0/0"]
+  targetTags     String[] // e.g. ["web-server"]
+  protocols      String[] // e.g. ["tcp:80", "tcp:443"]
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Service Accounts ──────────────────────────────────────────────────────────
+model ServiceAccount {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String
+  displayName    String
+  email          String   // generated: name@project.iam.gserviceaccount.com
+  description    String   @default("")
+  disabled       Boolean  @default(false)
+  keyCount       Int      @default(0)
+  createdAt      DateTime @default(now())
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Budgets & Alerts ──────────────────────────────────────────────────────────
+model BillingBudget {
+  id              String   @id @default(cuid())
+  projectId       String
+  name            String
+  amountUSD       Float
+  includeCredits  Boolean  @default(true)
+  thresholds      Float[]  // e.g. [0.5, 0.8, 1.0]
+  notifyEmails    String[]
+  currentSpend    Float    @default(0)
+  status          String   @default("ON_TRACK") // "ON_TRACK" | "WARNING" | "EXCEEDED"
+  createdAt       DateTime @default(now())
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Workflows ─────────────────────────────────────────────────────────────────
+model Workflow {
+  id             String    @id @default(cuid())
+  projectId      String
+  name           String
+  region         String
+  description    String    @default("")
+  sourceCode     String    @default("main:\n  steps:\n    - init:\n        assign:\n          - result: 'Hello World'")
+  status         String    @default("ACTIVE")
+  revisionId     String    @default("1")
+  lastExecutedAt DateTime?
+  lastExecStatus String    @default("NONE") // "NONE" | "SUCCEEDED" | "FAILED" | "RUNNING"
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ── Cloud Deploy ──────────────────────────────────────────────────────────────
+model DeliveryPipeline {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String
+  description    String   @default("")
+  region         String
+  stages         Json     @default("[]") // [{name, targetId, profiles}]
+  status         String   @default("ACTIVE")
+  lastDeployAt   DateTime?
+  lastDeployStatus String @default("NONE") // "NONE" | "SUCCEEDED" | "FAILED" | "IN_PROGRESS"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, name])
+  @@index([projectId])
+}
