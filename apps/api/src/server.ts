@@ -47,6 +47,8 @@ import { billingRouter }      from "./routes/billing";
 import { quotasRouter }       from "./routes/quotas";
 import { lifecycleRouter }    from "./routes/lifecycle";
 import { organizationsRouter } from "./routes/organizations";
+import { iamrolesRouter }     from "./routes/iamroles";
+import { eventsRouter }       from "./routes/events";
 import { errorHandler }        from "./middleware/errorHandler";
 import { requestId }           from "./middleware/requestId";
 import { requestTimeout }      from "./middleware/timeout";
@@ -153,6 +155,8 @@ app.use("/api/v1/billing",       billingRouter);
 app.use("/api/v1/quotas",        quotasRouter);
 app.use("/api/v1/lifecycle",     lifecycleRouter);
 app.use("/api/v1/organizations", organizationsRouter);
+app.use("/api/v1/iamroles",      iamrolesRouter);
+app.use("/api/v1/events",        eventsRouter);
 
 // 404 fallthrough
 app.use((req, res) =>

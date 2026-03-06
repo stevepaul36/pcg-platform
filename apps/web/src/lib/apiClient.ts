@@ -672,3 +672,15 @@ export const OrganizationsApi = {
   listFolders: (orgId: string) => apiFetch<any[]>(`/organizations/${orgId}/folders`),
   createFolder: (orgId: string, p: any) => apiFetch<any>(`/organizations/${orgId}/folders`, { method: "POST", body: JSON.stringify(p) }),
 };
+
+// ═══ IAM Roles & Permissions ══════════════════════════════════════════════════
+export const IAMRolesApi = {
+  listRoles: () => apiFetch<any[]>("/iamroles/roles"),
+  getRolePermissions: (role: string) => apiFetch<string[]>(`/iamroles/roles/${encodeURIComponent(role)}/permissions`),
+  checkPermission: (pid: string, permission: string) => apiFetch<any>(`/iamroles/${pid}/check`, { method: "POST", body: JSON.stringify({ permission }) }),
+};
+
+// ═══ Event Stream ═════════════════════════════════════════════════════════════
+export const EventsApi = {
+  recent: (limit = 50) => apiFetch<any[]>(`/events/recent?limit=${limit}`),
+};
