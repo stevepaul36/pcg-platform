@@ -4,6 +4,7 @@ import { CreateAlertPolicySchema, CreateUptimeCheckSchema } from "@pcg/shared";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
 import { logActivity } from "../services/activityLog";
+import { ResourceTracker } from "../services/resourceTracker";
 
 export const monitoringRouter = Router();
 monitoringRouter.use(requireAuth);
@@ -15,12 +16,14 @@ monitoringRouter.post("/:projectId/alerts", requireProjectAccess, requireProject
   try { const { user } = req as unknown as AuthenticatedRequest; const body = CreateAlertPolicySchema.parse(req.body);
     const p = await prisma.monitoringAlertPolicy.create({ data: { ...body, projectId: req.params.projectId } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "MONITORING_ALERT_CREATE", description: `Created alert policy "${body.displayName}"` });
+    ResourceTracker.onCreate(req.params.projectId, "MONITORING_ALERT", r.id, body.name ?? r.id).catch(() => {});
     res.status(201).json({ success: true, data: p }); } catch(e) { next(e); }
 });
 monitoringRouter.delete("/:projectId/alerts/:alertId", requireProjectAccess, requireProjectWrite, async (req, res, next) => {
   try { const { user } = req as unknown as AuthenticatedRequest;
     await prisma.monitoringAlertPolicy.delete({ where: { id: req.params.alertId } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "MONITORING_ALERT_DELETE", description: `Deleted alert policy ${req.params.alertId}` });
+    ResourceTracker.onDelete(req.params.projectId, "MONITORING_ALERT", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
     res.json({ success: true, data: null }); } catch(e) { next(e); }
 });
 

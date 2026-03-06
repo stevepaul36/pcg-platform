@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { AppError } from "../middleware/errorHandler";
 import { logActivity } from "../services/activityLog";
+import { ResourceTracker } from "../services/resourceTracker";
 
 export const dataflowRouter = Router();
 dataflowRouter.use(requireAuth);
@@ -25,6 +26,7 @@ dataflowRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, as
       data: { ...body, projectId: req.params.projectId, status: "JOB_STATE_RUNNING", hourlyCost },
     });
     await logActivity(prisma, req.params.projectId, user.email, { type: "DATAFLOW_JOB_CREATE", description: `Started Dataflow job ${body.name}`, resourceId: job.id, severity: "INFO" });
+    ResourceTracker.onCreate(req.params.projectId, "DATAFLOW_JOB", r.id, body.name ?? r.id).catch(() => {});
     res.status(201).json({ success: true, data: job });
   } catch (err) { next(err); }
 });
@@ -48,6 +50,7 @@ dataflowRouter.delete("/:projectId/:jobId", requireProjectAccess, requireProject
     if (!job) throw new AppError(404, "NOT_FOUND", "Job not found");
     await prisma.dataflowJob.delete({ where: { id: job.id } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "DATAFLOW_JOB_DELETE", description: `Deleted Dataflow job ${job.name}`, resourceId: job.id, severity: "WARNING" });
+    ResourceTracker.onDelete(req.params.projectId, "DATAFLOW_JOB", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
     res.json({ success: true });
   } catch (err) { next(err); }
 });

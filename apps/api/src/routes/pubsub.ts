@@ -6,6 +6,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { AppError } from "../middleware/errorHandler";
 import { logActivity } from "../services/activityLog";
+import { ResourceTracker } from "../services/resourceTracker";
 
 export const pubsubRouter = Router();
 pubsubRouter.use(requireAuth);
@@ -31,6 +32,7 @@ pubsubRouter.post("/:projectId/topics", requireProjectAccess, requireProjectWrit
     if (existing) throw new AppError(409, "CONFLICT", `Topic "${body.name}" already exists`);
     const topic = await prisma.pubSubTopic.create({ data: { ...body, projectId: req.params.projectId }, include: { subscriptions: true } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "PUBSUB_TOPIC_CREATE", description: `Created Pub/Sub topic ${body.name}`, resourceId: topic.id, severity: "INFO" });
+    ResourceTracker.onCreate(req.params.projectId, "PUBSUB_TOPIC", r.id, body.name ?? r.id).catch(() => {});
     res.status(201).json({ success: true, data: topic });
   } catch (err) { next(err); }
 });
@@ -43,6 +45,7 @@ pubsubRouter.delete("/:projectId/topics/:topicId", requireProjectAccess, require
     if (!topic) throw new AppError(404, "NOT_FOUND", "Topic not found");
     await prisma.pubSubTopic.delete({ where: { id: topic.id } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "PUBSUB_TOPIC_DELETE", description: `Deleted Pub/Sub topic ${topic.name}`, resourceId: topic.id, severity: "WARNING" });
+    ResourceTracker.onDelete(req.params.projectId, "PUBSUB_TOPIC", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
     res.json({ success: true });
   } catch (err) { next(err); }
 });

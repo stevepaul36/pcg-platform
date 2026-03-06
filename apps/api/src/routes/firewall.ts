@@ -3,6 +3,7 @@ import { CreateFirewallRuleSchema } from "@pcg/shared";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
 import { logActivity } from "../services/activityLog";
+import { ResourceTracker } from "../services/resourceTracker";
 export const firewallRouter = Router();
 firewallRouter.use(requireAuth);
 firewallRouter.get("/:projectId", requireProjectAccess, async (req, res, next) => {
@@ -13,6 +14,7 @@ firewallRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, as
   try { const { user } = req as unknown as AuthenticatedRequest; const body = CreateFirewallRuleSchema.parse(req.body);
     const r = await prisma.firewallRule.create({ data: { ...body, projectId: req.params.projectId } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "FIREWALL_CREATE", description: `Created Firewall Rule "${body.name}"` });
+    ResourceTracker.onCreate(req.params.projectId, "FIREWALL_RULE", r.id, body.name ?? r.id).catch(() => {});
     res.status(201).json({ success: true, data: r }); } catch(e) { next(e); }
 });
 
@@ -20,5 +22,6 @@ firewallRouter.delete("/:projectId/:id", requireProjectAccess, requireProjectWri
   try { const { user } = req as unknown as AuthenticatedRequest;
     await prisma.firewallRule.delete({ where: { id: req.params.id } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "FIREWALL_DELETE", description: `Deleted Firewall Rule ${req.params.id}`, severity: "WARNING" });
+    ResourceTracker.onDelete(req.params.projectId, "FIREWALL_RULE", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
     res.json({ success: true, data: null }); } catch(e) { next(e); }
 });

@@ -3,6 +3,7 @@ import { CreateTaskQueueSchema } from "@pcg/shared";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
 import { logActivity } from "../services/activityLog";
+import { ResourceTracker } from "../services/resourceTracker";
 export const tasksRouter = Router();
 tasksRouter.use(requireAuth);
 tasksRouter.get("/:projectId", requireProjectAccess, async (req, res, next) => {
@@ -13,6 +14,7 @@ tasksRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, async
   try { const { user } = req as unknown as AuthenticatedRequest; const body = CreateTaskQueueSchema.parse(req.body);
     const r = await prisma.taskQueue.create({ data: { ...body, projectId: req.params.projectId } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "TASK_QUEUE_CREATE", description: `Created Task Queue "${body.name}"` });
+    ResourceTracker.onCreate(req.params.projectId, "TASK_QUEUE", r.id, body.name ?? r.id).catch(() => {});
     res.status(201).json({ success: true, data: r }); } catch(e) { next(e); }
 });
 
@@ -20,6 +22,7 @@ tasksRouter.delete("/:projectId/:id", requireProjectAccess, requireProjectWrite,
   try { const { user } = req as unknown as AuthenticatedRequest;
     await prisma.taskQueue.delete({ where: { id: req.params.id } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "TASK_QUEUE_DELETE", description: `Deleted Task Queue ${req.params.id}`, severity: "WARNING" });
+    ResourceTracker.onDelete(req.params.projectId, "TASK_QUEUE", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
     res.json({ success: true, data: null }); } catch(e) { next(e); }
 });
 

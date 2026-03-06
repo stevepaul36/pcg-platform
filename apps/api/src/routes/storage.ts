@@ -7,6 +7,7 @@ import { prisma }      from "../lib/prisma";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { AppError }    from "../middleware/errorHandler";
 import { logActivity } from "../services/activityLog";
+import { ResourceTracker } from "../services/resourceTracker";
 import { getEffectivePlan, getPlanQuota } from "../services/subscription";
 
 export const storageRouter = Router();
@@ -69,6 +70,7 @@ storageRouter.post("/:projectId/buckets", requireProjectAccess, requireProjectWr
       description: `Storage bucket "${bucket.name}" created in ${bucket.location}`,
       resourceId:  bucket.id,
     });
+    ResourceTracker.onCreate(req.params.projectId, "STORAGE_BUCKET", r.id, body.name ?? r.id).catch(() => {});
 
     res.status(201).json({ success: true, data: bucket });
   } catch (err) { next(err); }
@@ -92,6 +94,7 @@ storageRouter.delete("/:projectId/buckets/:bucketId", requireProjectAccess, requ
       resourceId:  bucket.id,
       severity:    "WARNING",
     });
+    ResourceTracker.onDelete(req.params.projectId, "STORAGE_BUCKET", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
 
     res.json({ success: true, data: null });
   } catch (err) { next(err); }

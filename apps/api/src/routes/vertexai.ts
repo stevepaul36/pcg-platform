@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { AppError } from "../middleware/errorHandler";
 import { logActivity } from "../services/activityLog";
+import { ResourceTracker } from "../services/resourceTracker";
 
 export const vertexRouter = Router();
 vertexRouter.use(requireAuth);
@@ -33,6 +34,7 @@ vertexRouter.post("/:projectId/models", requireProjectAccess, requireProjectWrit
       await prisma.vertexModel.update({ where: { id: model.id }, data: { status: "DEPLOYED" } });
     }, 4000);
     await logActivity(prisma, req.params.projectId, user.email, { type: "VERTEX_MODEL_CREATE", description: `Uploaded Vertex AI model ${body.displayName}`, resourceId: model.id, severity: "INFO" });
+    ResourceTracker.onCreate(req.params.projectId, "VERTEX_MODEL", r.id, body.name ?? r.id).catch(() => {});
     res.status(201).json({ success: true, data: model });
   } catch (err) { next(err); }
 });
@@ -44,6 +46,7 @@ vertexRouter.delete("/:projectId/models/:modelId", requireProjectAccess, require
     if (!model) throw new AppError(404, "NOT_FOUND", "Model not found");
     await prisma.vertexModel.delete({ where: { id: model.id } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "VERTEX_MODEL_DELETE", description: `Deleted Vertex AI model ${model.name}`, resourceId: model.id, severity: "WARNING" });
+    ResourceTracker.onDelete(req.params.projectId, "VERTEX_MODEL", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
     res.json({ success: true });
   } catch (err) { next(err); }
 });

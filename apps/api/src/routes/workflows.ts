@@ -3,6 +3,7 @@ import { CreateWorkflowSchema } from "@pcg/shared";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
 import { logActivity } from "../services/activityLog";
+import { ResourceTracker } from "../services/resourceTracker";
 export const workflowsRouter = Router();
 workflowsRouter.use(requireAuth);
 workflowsRouter.get("/:projectId", requireProjectAccess, async (req, res, next) => {
@@ -13,6 +14,7 @@ workflowsRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, a
   try { const { user } = req as unknown as AuthenticatedRequest; const body = CreateWorkflowSchema.parse(req.body);
     const r = await prisma.workflow.create({ data: { ...body, projectId: req.params.projectId } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "WORKFLOW_CREATE", description: `Created Workflow "${body.name}"` });
+    ResourceTracker.onCreate(req.params.projectId, "WORKFLOW", r.id, body.name ?? r.id).catch(() => {});
     res.status(201).json({ success: true, data: r }); } catch(e) { next(e); }
 });
 
@@ -20,6 +22,7 @@ workflowsRouter.delete("/:projectId/:id", requireProjectAccess, requireProjectWr
   try { const { user } = req as unknown as AuthenticatedRequest;
     await prisma.workflow.delete({ where: { id: req.params.id } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "WORKFLOW_DELETE", description: `Deleted Workflow ${req.params.id}`, severity: "WARNING" });
+    ResourceTracker.onDelete(req.params.projectId, "WORKFLOW", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
     res.json({ success: true, data: null }); } catch(e) { next(e); }
 });
 

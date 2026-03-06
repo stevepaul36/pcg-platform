@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { AppError } from "../middleware/errorHandler";
 import { logActivity } from "../services/activityLog";
+import { ResourceTracker } from "../services/resourceTracker";
 import { SimulationService } from "../services/simulation";
 
 export const networkingRouter = Router();
@@ -26,6 +27,7 @@ networkingRouter.post("/:projectId/vpcs", requireProjectAccess, requireProjectWr
     if (existing) throw new AppError(409, "CONFLICT", `VPC "${body.name}" already exists`);
     const vpc = await prisma.vPCNetwork.create({ data: { ...body, projectId: req.params.projectId } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "VPC_CREATE", description: `Created VPC network ${body.name}`, resourceId: vpc.id, severity: "INFO" });
+    ResourceTracker.onCreate(req.params.projectId, "VPC", r.id, body.name ?? r.id).catch(() => {});
     res.status(201).json({ success: true, data: vpc });
   } catch (err) { next(err); }
 });
@@ -37,6 +39,7 @@ networkingRouter.delete("/:projectId/vpcs/:vpcId", requireProjectAccess, require
     if (!vpc) throw new AppError(404, "NOT_FOUND", "VPC not found");
     await prisma.vPCNetwork.delete({ where: { id: vpc.id } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "VPC_DELETE", description: `Deleted VPC network ${vpc.name}`, resourceId: vpc.id, severity: "WARNING" });
+    ResourceTracker.onDelete(req.params.projectId, "VPC", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
     res.json({ success: true });
   } catch (err) { next(err); }
 });

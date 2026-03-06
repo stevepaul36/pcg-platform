@@ -6,6 +6,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { AppError } from "../middleware/errorHandler";
 import { logActivity } from "../services/activityLog";
+import { ResourceTracker } from "../services/resourceTracker";
 
 export const bqRouter = Router();
 bqRouter.use(requireAuth);
@@ -31,6 +32,7 @@ bqRouter.post("/:projectId/datasets", requireProjectAccess, requireProjectWrite,
     if (existing) throw new AppError(409, "CONFLICT", `Dataset "${body.name}" already exists`);
     const dataset = await prisma.bQDataset.create({ data: { ...body, projectId: req.params.projectId }, include: { tables: true } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "BIGQUERY_DATASET_CREATE", description: `Created BigQuery dataset ${body.name}`, resourceId: dataset.id, severity: "INFO" });
+    ResourceTracker.onCreate(req.params.projectId, "BIGQUERY", r.id, body.name ?? r.id).catch(() => {});
     res.status(201).json({ success: true, data: dataset });
   } catch (err) { next(err); }
 });
@@ -43,6 +45,7 @@ bqRouter.delete("/:projectId/datasets/:datasetId", requireProjectAccess, require
     if (!dataset) throw new AppError(404, "NOT_FOUND", "Dataset not found");
     await prisma.bQDataset.delete({ where: { id: dataset.id } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "BIGQUERY_DATASET_DELETE", description: `Deleted BigQuery dataset ${dataset.name}`, resourceId: dataset.id, severity: "WARNING" });
+    ResourceTracker.onDelete(req.params.projectId, "BIGQUERY", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
     res.json({ success: true });
   } catch (err) { next(err); }
 });

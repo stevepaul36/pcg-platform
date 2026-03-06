@@ -6,6 +6,7 @@ import { prisma }      from "../lib/prisma";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { AppError }    from "../middleware/errorHandler";
 import { logActivity } from "../services/activityLog";
+import { ResourceTracker } from "../services/resourceTracker";
 import { getEffectivePlan, getPlanQuota } from "../services/subscription";
 
 export const sqlRouter = Router();
@@ -91,6 +92,7 @@ sqlRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, async (
       description: `SQL instance "${instance.name}" (${instance.dbType}) created`,
       resourceId:  instance.id,
     });
+    ResourceTracker.onCreate(req.params.projectId, "SQL_INSTANCE", r.id, body.name ?? r.id).catch(() => {});
 
     // Simulate creation delay
     setTimeout(async () => {
@@ -122,6 +124,7 @@ sqlRouter.delete("/:projectId/:instanceId", requireProjectAccess, requireProject
       resourceId:  instance.id,
       severity:    "WARNING",
     });
+    ResourceTracker.onDelete(req.params.projectId, "SQL_INSTANCE", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
 
     res.json({ success: true, data: null });
   } catch (err) { next(err); }

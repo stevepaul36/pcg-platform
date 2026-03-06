@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { AppError } from "../middleware/errorHandler";
 import { logActivity } from "../services/activityLog";
+import { ResourceTracker } from "../services/resourceTracker";
 
 export const securityRouter = Router();
 securityRouter.use(requireAuth);
@@ -25,6 +26,7 @@ securityRouter.post("/:projectId/secrets", requireProjectAccess, requireProjectW
     if (existing) throw new AppError(409, "CONFLICT", `Secret "${body.name}" already exists`);
     const secret = await prisma.secretManagerSecret.create({ data: { ...body, projectId: req.params.projectId } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "SECRET_CREATE", description: `Created secret ${body.name}`, resourceId: secret.id, severity: "INFO" });
+    ResourceTracker.onCreate(req.params.projectId, "SECRET", r.id, body.name ?? r.id).catch(() => {});
     res.status(201).json({ success: true, data: secret });
   } catch (err) { next(err); }
 });
@@ -36,6 +38,7 @@ securityRouter.delete("/:projectId/secrets/:secretId", requireProjectAccess, req
     if (!secret) throw new AppError(404, "NOT_FOUND", "Secret not found");
     await prisma.secretManagerSecret.delete({ where: { id: secret.id } });
     await logActivity(prisma, req.params.projectId, user.email, { type: "SECRET_DELETE", description: `Deleted secret ${secret.name}`, resourceId: secret.id, severity: "WARNING" });
+    ResourceTracker.onDelete(req.params.projectId, "SECRET", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
     res.json({ success: true });
   } catch (err) { next(err); }
 });

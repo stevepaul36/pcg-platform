@@ -24,7 +24,8 @@ export function DataprocPanelPanel() {
       <input className="input-field" placeholder="Cluster name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
       <select className="input-field" value={form.region} onChange={e=>setForm({...form,region:e.target.value})}><option key="us-central1" value="us-central1">us-central1</option><option key="us-east1" value="us-east1">us-east1</option><option key="europe-west1" value="europe-west1">europe-west1</option><option key="asia-east1" value="asia-east1">asia-east1</option></select>
       <input className="input-field" type="number" placeholder="Workers" value={form.workerCount} onChange={e=>setForm({...form,workerCount:+e.target.value})}/>
-      <select className="input-field" value={form.masterType} onChange={e=>setForm({...form,masterType:e.target.value})}><option key="n1-standard-2" value="n1-standard-2">n1-standard-2</option><option key="n1-standard-4" value="n1-standard-4">n1-standard-4</option><option key="n1-standard-8" value="n1-standard-8">n1-standard-8</option></select>
+      <select className="input-field" value={form.masterType} onChange={e=>setForm({...form,masterType:e.target.value})}><option key="n1-standard-2" value="n1-standard-2">n1-standard-2 (master)</option><option key="n1-standard-4" value="n1-standard-4">n1-standard-4 (master)</option><option key="n1-standard-8" value="n1-standard-8">n1-standard-8 (master)</option></select>
+      <select className="input-field" value={form.workerType||"n1-standard-2"} onChange={e=>setForm({...form,workerType:e.target.value})}><option value="n1-standard-2">n1-standard-2 (worker)</option><option value="n1-standard-4">n1-standard-4 (worker)</option></select>
       <div className="flex gap-2"><button className="btn-primary flex-1" onClick={create}>Create</button><button className="btn-secondary flex-1" onClick={()=>setShow(false)}>Cancel</button></div>
     </div></div>}
   </div>);
