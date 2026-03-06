@@ -1,0 +1,125 @@
+# infra/docker/docker-compose.yml
+# Full local dev stack. Run: docker compose up -d
+
+version: "3.9"
+
+services:
+
+  # ── Postgres ────────────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: pcg-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     pcg
+      POSTGRES_PASSWORD: pcg_dev_pass
+      POSTGRES_DB:       pcg_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:     ["CMD-SHELL", "pg_isready -U pcg"]
+      interval: 5s
+      timeout:  5s
+      retries:  10
+
+  # ── Redis (optional caching layer) ──────────────────────────────────────────
+
+  redis:
+    image: redis:7-alpine
+    container_name: pcg-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test:     ["CMD", "redis-cli", "ping"]
+      interval: 5s
+
+  # ── API ─────────────────────────────────────────────────────────────────────
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+    container_name: pcg-api
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    environment:
+      NODE_ENV:               development
+      PORT:                   4000
+      DATABASE_URL:           postgresql://pcg:pcg_dev_pass@postgres:5432/pcg_db
+      REDIS_URL:              redis://redis:6379
+      JWT_SECRET:             ${JWT_SECRET:-dev_secret_change_in_production_must_be_32_chars!!}
+      JWT_EXPIRES_IN:         ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET:     ${JWT_REFRESH_SECRET:-dev_refresh_secret_must_also_be_32_characters}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
+      ANTHROPIC_API_KEY:      ${ANTHROPIC_API_KEY}
+      LOG_LEVEL:              debug
+      CORS_ORIGINS:           http://localhost:3000
+      TRUST_PROXY:            1
+      ADMIN_EMAILS:           ${ADMIN_EMAILS:-admin@localhost}
+    ports:
+      - "4000:4000"
+    volumes:
+      - ../../apps/api/src:/app/apps/api/src   # hot reload in dev
+    command: npx ts-node-dev --respawn --transpile-only apps/api/src/server.ts
+    healthcheck:
+      test:     ["CMD-SHELL", "curl -sf http://localhost:4000/health || exit 1"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
+      start_period: 15s
+
+  # ── Metrics Worker ───────────────────────────────────────────────────────────
+
+  metrics-worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+    container_name: pcg-metrics-worker
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      DATABASE_URL:      postgresql://pcg:pcg_dev_pass@postgres:5432/pcg_db
+      LOG_LEVEL:         info
+      # Worker needs env validation to pass — provide all required vars
+      JWT_SECRET:        ${JWT_SECRET:-dev_secret_change_in_production_must_be_32_chars!!}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev_refresh_secret_must_also_be_32_characters}
+    command: npx ts-node apps/api/src/workers/metricsWorker.ts
+    healthcheck:
+      test:     ["CMD-SHELL", "node -e \"process.exit(0)\""]
+      interval: 30s
+      timeout:  5s
+      retries:  3
+
+  # ── Web (Next.js) ────────────────────────────────────────────────────────────
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.web
+      target: dev
+    container_name: pcg-web
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../../apps/web/src:/app/apps/web/src   # hot reload
+    healthcheck:
+      test:     ["CMD-SHELL", "curl -sf http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
+      start_period: 20s
+
+volumes:
+  postgres_data:
