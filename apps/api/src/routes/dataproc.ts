@@ -12,7 +12,7 @@ dataprocRouter.get("/:projectId", requireProjectAccess, async (req, res, next) =
 
 dataprocRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, async (req, res, next) => {
   try { const { user } = req as unknown as AuthenticatedRequest; const body = CreateDataprocClusterSchema.parse(req.body);
-    const costMap: Record<string,number> = {"n1-standard-2":0.095,"n1-standard-4":0.19,"n1-standard-8":0.38};
+    const costMap: Record<string,number> = {"n1-standard-2":0.095,"n1-standard-4":0.19,"n1-standard-8":0.38,"n2-standard-2":0.097,"n2-standard-4":0.194};
     const hourlyCost = (costMap[body.masterType] ?? 0.19) + (costMap[body.workerType] ?? 0.095) * body.workerCount;
     const r = await prisma.dataprocCluster.create({ data: { ...body, hourlyCost, projectId: req.params.projectId } });
     setTimeout(async () => { try { await prisma.dataprocCluster.update({ where: { id: r.id }, data: { status: "RUNNING" } }); } catch {} }, 4000);
