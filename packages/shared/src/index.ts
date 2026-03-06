@@ -155,11 +155,27 @@ export interface Improvement {
 }
 
 export interface PlanQuota {
-  maxVMs:          number;
-  maxBuckets:      number;
-  maxSQLInstances: number;
-  sessionDays:     number;
-  label:           string;
+  // Compute
+  maxVMs:            number;
+  maxGKEClusters:    number;
+  maxCloudRunServices: number;
+  maxCloudFunctions: number;
+  // Storage & Database
+  maxBuckets:        number;
+  maxSQLInstances:   number;
+  maxMemorystoreInstances: number;
+  // Analytics
+  maxBQDatasets:     number;
+  maxPubSubTopics:   number;
+  // Networking
+  maxVPCs:           number;
+  maxLoadBalancers:  number;
+  // Security
+  maxSecrets:        number;
+  maxServiceAccounts: number;
+  // Session
+  sessionDays:       number;
+  label:             string;
 }
 
 // ── Pagination ────────────────────────────────────────────────────────────────
@@ -176,47 +192,120 @@ export interface PaginatedResponse<T> {
 }
 
 // ── Catalogs (shared between API validation and frontend dropdowns) ───────────
+// All machine families referenced in the GCP Developer's Cheat Sheet:
+// Compute Engine — VMs, GPUs, TPUs; Preemptible VMs; Shielded VMs; Sole-tenant Nodes
 
 export const MACHINE_TYPES = [
+  // E2 — Cost-optimised
   "e2-micro", "e2-small", "e2-medium",
+  "e2-standard-2", "e2-standard-4", "e2-standard-8", "e2-standard-16",
+  "e2-highcpu-2", "e2-highcpu-8", "e2-highmem-2", "e2-highmem-8",
+  // N1 — General-purpose (Skylake)
   "n1-standard-1", "n1-standard-2", "n1-standard-4",
-  "n2-standard-2", "n2-standard-4",
-  "c2-standard-4", "c2-standard-8",
+  "n1-standard-8", "n1-standard-16", "n1-standard-32",
+  "n1-highcpu-4", "n1-highcpu-8",
+  "n1-highmem-4", "n1-highmem-8",
+  // N2 — Balanced (Intel Cascade Lake)
+  "n2-standard-2", "n2-standard-4", "n2-standard-8",
+  "n2-standard-16", "n2-standard-32",
+  "n2-highcpu-4", "n2-highcpu-8",
+  "n2-highmem-4", "n2-highmem-8",
+  // N2D — Balanced (AMD EPYC)
+  "n2d-standard-2", "n2d-standard-4", "n2d-standard-8",
+  "n2d-highcpu-4", "n2d-highmem-4",
+  // T2D — Scale-out (AMD EPYC Milan)
+  "t2d-standard-1", "t2d-standard-4", "t2d-standard-8",
+  // C2 — Compute-optimised (Intel Cascade Lake)
+  "c2-standard-4", "c2-standard-8", "c2-standard-16",
+  "c2-standard-30", "c2-standard-60",
+  // C3 — General-purpose (Intel Sapphire Rapids)
+  "c3-standard-4", "c3-standard-8", "c3-standard-22",
+  "c3-highcpu-4", "c3-highmem-4",
+  // M1 — Memory-optimised
+  "m1-ultramem-40", "m1-ultramem-80", "m1-megamem-96",
+  // A2 — Accelerator-optimised (NVIDIA A100 GPU)
+  "a2-highgpu-1g", "a2-highgpu-2g", "a2-highgpu-4g", "a2-highgpu-8g",
 ] as const;
 
+// All GCP regions as listed in cloud.google.com/about/locations
 export const REGIONS = [
-  "us-central1", "us-east1", "us-west1",
-  "europe-west1", "europe-west2",
-  "asia-south1", "asia-east1", "asia-southeast1",
+  // North America
+  "us-central1", "us-east1", "us-east4", "us-east5", "us-south1",
+  "us-west1", "us-west2", "us-west3", "us-west4",
+  "northamerica-northeast1", "northamerica-northeast2",
+  // South America
+  "southamerica-east1", "southamerica-west1",
+  // Europe
+  "europe-central2", "europe-north1", "europe-southwest1",
+  "europe-west1", "europe-west2", "europe-west3", "europe-west4",
+  "europe-west6", "europe-west8", "europe-west9", "europe-west10", "europe-west12",
+  // Middle East
+  "me-central1", "me-west1",
+  // Africa
+  "africa-south1",
+  // Asia Pacific
+  "asia-east1", "asia-east2",
+  "asia-northeast1", "asia-northeast2", "asia-northeast3",
+  "asia-south1", "asia-south2",
+  "asia-southeast1", "asia-southeast2",
+  "australia-southeast1", "australia-southeast2",
 ] as const;
 
 export const ZONES = [
-  "us-central1-a", "us-central1-b", "us-central1-c",
+  "us-central1-a", "us-central1-b", "us-central1-c", "us-central1-f",
   "us-east1-b", "us-east1-c", "us-east1-d",
-  "us-west1-a", "us-west1-b",
-  "europe-west1-b", "europe-west1-c",
-  "europe-west2-a", "europe-west2-b",
-  "asia-south1-a", "asia-south1-b",
-  "asia-east1-a", "asia-east1-b",
-  "asia-southeast1-a", "asia-southeast1-b",
+  "us-east4-a", "us-east4-b", "us-east4-c",
+  "us-west1-a", "us-west1-b", "us-west1-c",
+  "us-west2-a", "us-west2-b", "us-west2-c",
+  "us-west4-a", "us-west4-b",
+  "northamerica-northeast1-a", "northamerica-northeast1-b",
+  "europe-west1-b", "europe-west1-c", "europe-west1-d",
+  "europe-west2-a", "europe-west2-b", "europe-west2-c",
+  "europe-west3-a", "europe-west3-b", "europe-west3-c",
+  "europe-west4-a", "europe-west4-b",
+  "europe-west6-a", "europe-west6-b",
+  "asia-south1-a", "asia-south1-b", "asia-south1-c",
+  "asia-east1-a", "asia-east1-b", "asia-east1-c",
+  "asia-east2-a", "asia-east2-b",
+  "asia-northeast1-a", "asia-northeast1-b", "asia-northeast1-c",
+  "asia-southeast1-a", "asia-southeast1-b", "asia-southeast1-c",
+  "australia-southeast1-a", "australia-southeast1-b", "australia-southeast1-c",
 ] as const;
 
 export const OS_IMAGES = [
+  // Debian (Google-maintained)
   "debian-11", "debian-12",
+  // Ubuntu LTS
   "ubuntu-2004-lts", "ubuntu-2204-lts", "ubuntu-2404-lts",
-  "centos-stream-9", "rocky-linux-9",
-  "windows-server-2022",
+  // Enterprise Linux
+  "centos-stream-9", "rocky-linux-9", "rhel-9",
+  // Container-optimised
+  "cos-stable", "cos-dev",
+  // Windows Server
+  "windows-server-2019", "windows-server-2022",
+  // Deep Learning VM (references Vertex AI Deep Learning VM Images from cheat sheet)
+  "deep-learning-vm-pytorch", "deep-learning-vm-tensorflow",
 ] as const;
 
 export const SQL_TIERS = [
+  // Shared-core (dev/test)
   "db-f1-micro", "db-g1-small",
-  "db-n1-standard-1", "db-n1-standard-2",
+  // Standard — N1
+  "db-n1-standard-1", "db-n1-standard-2", "db-n1-standard-4", "db-n1-standard-8",
+  // High-memory — N1
+  "db-n1-highmem-2", "db-n1-highmem-4", "db-n1-highmem-8",
+  // Enterprise (PostgreSQL 15+, MySQL 8.0+)
+  "db-perf-optimized-N-2", "db-perf-optimized-N-4", "db-perf-optimized-N-8",
 ] as const;
 
 export const DB_VERSIONS: Record<string, string[]> = {
-  "PostgreSQL":  ["POSTGRES_14", "POSTGRES_15", "POSTGRES_16"],
-  "MySQL":       ["MYSQL_8_0", "MYSQL_8_4"],
-  "SQL Server":  ["SQLSERVER_2019_STANDARD", "SQLSERVER_2022_STANDARD"],
+  "PostgreSQL":  ["POSTGRES_13", "POSTGRES_14", "POSTGRES_15", "POSTGRES_16"],
+  "MySQL":       ["MYSQL_5_7", "MYSQL_8_0", "MYSQL_8_4"],
+  "SQL Server":  [
+    "SQLSERVER_2017_STANDARD", "SQLSERVER_2017_ENTERPRISE",
+    "SQLSERVER_2019_STANDARD", "SQLSERVER_2019_ENTERPRISE",
+    "SQLSERVER_2022_STANDARD", "SQLSERVER_2022_ENTERPRISE",
+  ],
 };
 
 // ── Zod validation schemas ────────────────────────────────────────────────────
@@ -227,7 +316,10 @@ export const CreateVMSchema = z.object({
   region:      z.enum(REGIONS),
   machineType: z.enum(MACHINE_TYPES),
   diskGb:      z.number().int().min(10).max(65536),
-  diskType:    z.enum(["pd-standard", "pd-balanced", "pd-ssd"]),
+  diskType:    z.enum([
+    "pd-standard", "pd-balanced", "pd-ssd", "pd-extreme",
+    "hyperdisk-balanced", "hyperdisk-extreme",
+  ]),
   osImage:     z.enum(OS_IMAGES),
   preemptible: z.boolean().default(false),
   tags:        z.array(z.string().max(63)).max(64).default([]),
@@ -422,20 +514,40 @@ export const CreatePubSubTopicSchema = z.object({
 
 export const CreateFunctionSchema = z.object({
   name: z.string().min(1).max(63).regex(/^[a-z][a-z0-9-]+$/),
-  runtime: z.enum(["nodejs20", "python311", "go121", "java17", "ruby32"]),
+  // Cloud Functions supported runtimes (as of 2024 — GCP Cheat Sheet: Cloud Functions)
+  runtime: z.enum([
+    // Node.js
+    "nodejs18", "nodejs20", "nodejs22",
+    // Python
+    "python310", "python311", "python312",
+    // Go
+    "go120", "go121", "go122",
+    // Java
+    "java17", "java21",
+    // Ruby
+    "ruby32",
+    // .NET
+    "dotnet6", "dotnet8",
+    // PHP
+    "php82",
+  ]),
   region: z.string().min(1),
   entryPoint: z.string().min(1),
-  trigger: z.enum(["HTTP", "PUBSUB", "STORAGE"]),
-  memoryMb: z.number().int().min(128).max(16384).default(256),
-  timeoutSec: z.number().int().min(1).max(540).default(60),
+  trigger: z.enum(["HTTP", "PUBSUB", "STORAGE", "EVENTARC"]),
+  memoryMb: z.number().int().min(128).max(32768).default(256),
+  timeoutSec: z.number().int().min(1).max(3600).default(60), // 2nd gen supports up to 3600s
+  concurrency: z.number().int().min(1).max(1000).default(1),  // 2nd gen concurrency
 });
 
 export const CreateGKEClusterSchema = z.object({
   name: z.string().min(1).max(40).regex(/^[a-z][a-z0-9-]+$/),
   zone: z.string().min(1),
-  nodeCount: z.number().int().min(1).max(100).default(3),
-  machineType: z.string().min(1),
+  nodeCount: z.number().int().min(1).max(1000).default(3),
+  machineType: z.enum(MACHINE_TYPES),
   diskGb: z.number().int().min(10).max(2000).default(100),
+  // GKE channel / version (Cheat Sheet: Kubernetes Engine — Managed Kubernetes)
+  version: z.string().default("1.30"),
+  autopilot: z.boolean().default(false),
 });
 
 export const CreateCloudRunSchema = z.object({
@@ -523,21 +635,52 @@ export interface ApiGatewayConfig { id: string; projectId: string; name: string;
 export const CreateApiGatewaySchema = z.object({ name: z.string().min(1).max(60).regex(/^[a-z][a-z0-9_-]*$/), displayName: z.string().min(1).max(128), backendUrl: z.string().url(), region: z.enum(["us-central1","us-east1","europe-west1","asia-east1"]), protocol: z.enum(["HTTP","HTTPS","GRPC"]).default("HTTPS"), authType: z.enum(["API_KEY","JWT","NONE"]).default("API_KEY"), rateLimitRpm: z.number().int().min(10).max(100000).default(1000) });
 
 // ── Memorystore ───────────────────────────────────────────────────────────────
+// GCP Cheat Sheet: Database — Memorystore: Managed Redis and Memcached
 export interface MemorystoreInstance { id: string; projectId: string; name: string; engine: string; version: string; tier: string; memorySizeGb: number; region: string; host: string; port: number; status: string; highAvailability: boolean; hourlyCost: number; createdAt: string; }
-export const CreateMemorystoreSchema = z.object({ name: z.string().min(1).max(60).regex(/^[a-z][a-z0-9_-]*$/), engine: z.enum(["REDIS","MEMCACHED"]), version: z.enum(["REDIS_7_0","REDIS_6_X","MEMCACHE_1_6"]), tier: z.enum(["BASIC","STANDARD_HA"]), memorySizeGb: z.number().int().min(1).max(300), region: z.enum(["us-central1","us-east1","europe-west1","asia-east1"]) });
+export const CreateMemorystoreSchema = z.object({
+  name: z.string().min(1).max(60).regex(/^[a-z][a-z0-9_-]*$/),
+  engine: z.enum(["REDIS", "MEMCACHED"]),
+  version: z.enum([
+    // Redis versions (Cheat Sheet: Managed Redis)
+    "REDIS_7_2", "REDIS_7_0", "REDIS_6_X",
+    // Memcached (Cheat Sheet: Managed Memcached)
+    "MEMCACHE_1_6",
+  ]),
+  tier: z.enum(["BASIC", "STANDARD_HA"]),
+  memorySizeGb: z.number().int().min(1).max(300),
+  region: z.enum(["us-central1", "us-east1", "europe-west1", "asia-east1"]),
+});
 
 // ── Cloud Armor ───────────────────────────────────────────────────────────────
+// GCP Cheat Sheet: Networking — Cloud Armor: DDoS protection and WAF
 export interface CloudArmorPolicy { id: string; projectId: string; name: string; description: string; type: string; defaultAction: string; rules: any[]; adaptiveProtection: boolean; createdAt: string; }
 export const CreateCloudArmorSchema = z.object({ name: z.string().min(1).max(60).regex(/^[a-z][a-z0-9_-]*$/), description: z.string().max(256).default(""), type: z.enum(["CLOUD_ARMOR","CLOUD_ARMOR_EDGE"]).default("CLOUD_ARMOR"), defaultAction: z.enum(["allow","deny(403)","deny(404)","deny(502)"]).default("allow"), adaptiveProtection: z.boolean().default(false) });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// v6.0 — 10 New GCP Service Types & Schemas
+// v6.2 — Additional GCP Service Types & Schemas
+// Covers services from the GCP Developer's Cheat Sheet not yet modelled.
 // ══════════════════════════════════════════════════════════════════════════════
 
 export const CreateFirestoreDBSchema = z.object({ name: z.string().min(1).max(60).default("(default)"), type: z.enum(["NATIVE","DATASTORE"]).default("NATIVE"), locationId: z.enum(["us-central1","us-east1","europe-west1","asia-east1"]) });
 export const CreateLogSinkSchema = z.object({ name: z.string().min(1).max(60).regex(/^[a-z][a-z0-9_-]*$/), destination: z.string().min(1), filter: z.string().default("") });
 export const CreateTaskQueueSchema = z.object({ name: z.string().min(1).max(60).regex(/^[a-z][a-z0-9_-]*$/), region: z.enum(["us-central1","us-east1","europe-west1","asia-east1"]), rateLimitPerSecond: z.number().min(1).max(5000).default(500), maxConcurrent: z.number().int().min(1).max(5000).default(1000), retryMaxAttempts: z.number().int().min(0).max(10).default(3) });
-export const CreateDataprocClusterSchema = z.object({ name: z.string().min(1).max(60).regex(/^[a-z][a-z0-9_-]*$/), region: z.enum(["us-central1","us-east1","europe-west1","asia-east1"]), masterType: z.enum(["n1-standard-2","n1-standard-4","n1-standard-8"]).default("n1-standard-4"), workerType: z.enum(["n1-standard-2","n1-standard-4"]).default("n1-standard-2"), workerCount: z.number().int().min(2).max(100).default(2), imageVersion: z.enum(["2.1-debian11","2.0-debian10","1.5-debian10"]).default("2.1-debian11") });
+
+// Dataproc: Managed Spark and Hadoop (GCP Cheat Sheet: Data Analytics)
+export const CreateDataprocClusterSchema = z.object({
+  name: z.string().min(1).max(60).regex(/^[a-z][a-z0-9_-]*$/),
+  region: z.enum(["us-central1","us-east1","europe-west1","asia-east1"]),
+  masterType: z.enum(["n1-standard-2","n1-standard-4","n1-standard-8","n2-standard-4"]).default("n1-standard-4"),
+  workerType: z.enum(["n1-standard-2","n1-standard-4","n2-standard-2"]).default("n1-standard-2"),
+  workerCount: z.number().int().min(2).max(500).default(2),
+  // Current Dataproc image versions as of 2024
+  imageVersion: z.enum([
+    "2.2-debian12", "2.2-rocky9",
+    "2.1-debian11", "2.1-rocky8",
+    "2.0-debian10",
+  ]).default("2.2-debian12"),
+  autoscaling: z.boolean().default(false),
+});
+
 export const CreateCDNConfigSchema = z.object({ name: z.string().min(1).max(60).regex(/^[a-z][a-z0-9_-]*$/), originUrl: z.string().url(), cacheMode: z.enum(["CACHE_ALL_STATIC","USE_ORIGIN_HEADERS","FORCE_CACHE_ALL"]).default("CACHE_ALL_STATIC"), defaultTtlSec: z.number().int().min(0).max(86400).default(3600) });
 export const CreateFirewallRuleSchema = z.object({ name: z.string().min(1).max(60).regex(/^[a-z][a-z0-9_-]*$/), network: z.string().default("default"), direction: z.enum(["INGRESS","EGRESS"]), action: z.enum(["ALLOW","DENY"]), priority: z.number().int().min(0).max(65535).default(1000), sourceRanges: z.array(z.string()).default(["0.0.0.0/0"]), targetTags: z.array(z.string()).default([]), protocols: z.array(z.string()).min(1) });
 export const CreateServiceAccountSchema = z.object({ name: z.string().min(6).max(30).regex(/^[a-z][a-z0-9-]*$/), displayName: z.string().min(1).max(100), description: z.string().max(256).default("") });

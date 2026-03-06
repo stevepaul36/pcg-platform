@@ -5,14 +5,11 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { AppError } from "../middleware/errorHandler";
 import { logActivity } from "../services/activityLog";
+import { BillingService } from "../services/simulation";
+import { BillingEngine } from "../services/billingEngine";
 
 export const functionsRouter = Router();
 functionsRouter.use(requireAuth);
-
-const FUNCTION_COST: Record<string, number> = {
-  nodejs20: 0.0000025, python311: 0.0000025, go121: 0.000002,
-  java17: 0.0000035, ruby32: 0.000003,
-};
 
 functionsRouter.get("/:projectId", requireProjectAccess, async (req, res, next) => {
   try {
@@ -29,16 +26,26 @@ functionsRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, a
     const { user } = req as unknown as AuthenticatedRequest;
     const existing = await prisma.cloudFunction.findFirst({ where: { projectId: req.params.projectId, name: body.name } });
     if (existing) throw new AppError(409, "CONFLICT", `Function "${body.name}" already exists`);
-    const hourlyCost = FUNCTION_COST[body.runtime] ?? 0.0000025;
+
+    // Accurate Cloud Functions pricing: invocation cost + compute (GB-seconds)
+    const hourlyCost = BillingService.cloudFunctionHourlyCost(body.memoryMb);
     const fn = await prisma.cloudFunction.create({
-      data: { ...body, projectId: req.params.projectId, hourlyCost,
-        status: "DEPLOYING" },
+      data: { ...body, projectId: req.params.projectId, hourlyCost, status: "DEPLOYING" },
     });
+
+    // Start billing on deploy, not just when active
+    BillingEngine.trackUsage(req.params.projectId, "CLOUD_FUNCTION", fn.id, fn.name, hourlyCost).catch(() => {});
+
     // Simulate deploy completing
     setTimeout(async () => {
       await prisma.cloudFunction.update({ where: { id: fn.id }, data: { status: "ACTIVE" } });
     }, 3000);
-    await logActivity(prisma, req.params.projectId, user.email, { type: "FUNCTION_CREATE", description: `Created Cloud Function ${body.name}`, resourceId: fn.id, severity: "INFO" });
+
+    await logActivity(prisma, req.params.projectId, user.email, {
+      type: "FUNCTION_CREATE", description: `Created Cloud Function ${body.name}`,
+      resourceId: fn.id, severity: "INFO",
+      metadata: { runtime: body.runtime, memoryMb: body.memoryMb, trigger: body.trigger, hourlyCost },
+    });
     res.status(201).json({ success: true, data: fn });
   } catch (err) { next(err); }
 });
@@ -49,6 +56,7 @@ functionsRouter.delete("/:projectId/:fnId", requireProjectAccess, requireProject
     const fn = await prisma.cloudFunction.findFirst({ where: { id: req.params.fnId, projectId: req.params.projectId } });
     if (!fn) throw new AppError(404, "NOT_FOUND", "Function not found");
     await prisma.cloudFunction.delete({ where: { id: fn.id } });
+    BillingEngine.stopUsage(fn.id).catch(() => {});
     await logActivity(prisma, req.params.projectId, user.email, { type: "FUNCTION_DELETE", description: `Deleted Cloud Function ${fn.name}`, resourceId: fn.id, severity: "WARNING" });
     res.json({ success: true });
   } catch (err) { next(err); }

@@ -54,13 +54,25 @@ sqlRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, async (
       throw new AppError(
         429,
         "QUOTA_EXCEEDED",
-        `SQL instance quota exceeded (max ${quota.maxSQLInstances} for "${effectivePlan}" plan)`,
+        `SQL instance quota exceeded (max ${quota.maxSQLInstances} for "${effectivePlan}" plan). Delete existing instances or upgrade your plan.`,
       );
     }
 
+    // Cloud SQL hourly pricing (us-central1, per vCPU + per GB RAM)
+    // Source: cloud.google.com/sql/pricing (GCP Cheat Sheet: Database — Cloud SQL)
     const SQL_COSTS: Record<string, number> = {
-      "db-f1-micro": 0.0105, "db-g1-small": 0.0255,
-      "db-n1-standard-1": 0.0965, "db-n1-standard-2": 0.1930,
+      "db-f1-micro":           0.0105,
+      "db-g1-small":           0.0255,
+      "db-n1-standard-1":      0.0965,
+      "db-n1-standard-2":      0.1930,
+      "db-n1-standard-4":      0.3860,
+      "db-n1-standard-8":      0.7720,
+      "db-n1-highmem-2":       0.2480,
+      "db-n1-highmem-4":       0.4960,
+      "db-n1-highmem-8":       0.9920,
+      "db-perf-optimized-N-2": 0.3082,
+      "db-perf-optimized-N-4": 0.6164,
+      "db-perf-optimized-N-8": 1.2328,
     };
 
     const instance = await prisma.sQLInstance.create({

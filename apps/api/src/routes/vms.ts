@@ -7,6 +7,7 @@ import { prisma }      from "../lib/prisma";
 import { requireAuth, requireProjectAccess, requireProjectWrite, AuthenticatedRequest } from "../middleware/auth";
 import { AppError }    from "../middleware/errorHandler";
 import { SimulationService, BillingService } from "../services/simulation";
+import { BillingEngine } from "../services/billingEngine";
 import { logActivity } from "../services/activityLog";
 import { getEffectivePlan, getPlanQuota } from "../services/subscription";
 
@@ -62,7 +63,7 @@ vmRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, async (r
       throw new AppError(
         429,
         "QUOTA_EXCEEDED",
-        `VM quota exceeded (max ${quota.maxVMs} for the "${effectivePlan}" plan)`,
+        `VM quota exceeded (max ${quota.maxVMs} active VMs for the "${effectivePlan}" plan). Terminate existing VMs to create new ones.`,
       );
     }
 
@@ -108,6 +109,9 @@ vmRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, async (r
 
     // Non-blocking: transitions PROVISIONING → RUNNING after ~3.8 s
     SimulationService.simulateProvisioning(vm.id).catch(() => {});
+
+    // Start billing tracking (non-blocking — don't fail VM creation if billing fails)
+    BillingEngine.trackUsage(projectId, "VM", vm.id, vm.name, costs.compute + costs.disk).catch(() => {});
 
     res.status(201).json({ success: true, data: vm });
   } catch (err) { next(err); }
@@ -169,6 +173,7 @@ vmRouter.patch("/:projectId/:vmId/action", requireProjectAccess, requireProjectW
 
     if (action === "terminate") {
       SimulationService.simulateTermination(vmId).catch(() => {});
+      BillingEngine.stopUsage(vmId).catch(() => {});
     }
 
     res.json({ success: true, data: updated });

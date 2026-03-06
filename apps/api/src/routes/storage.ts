@@ -56,7 +56,7 @@ storageRouter.post("/:projectId/buckets", requireProjectAccess, requireProjectWr
       throw new AppError(
         429,
         "QUOTA_EXCEEDED",
-        `Bucket quota exceeded (max ${quota.maxBuckets} for "${effectivePlan}" plan)`,
+        `Bucket quota exceeded (max ${quota.maxBuckets} for "${effectivePlan}" plan). Delete existing buckets or upgrade your plan.`,
       );
     }
 
