@@ -4,7 +4,7 @@ import { AppError } from "../middleware/errorHandler";
 
 export class IAMService {
   static async listMembers(projectId: string) {
-    return prisma.iAMMember.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } });
+    return prisma.iAMMember.findMany({ where: { projectId }, orderBy: { addedAt: "desc" } });
   }
   static async addMember(projectId: string, data: any, userEmail: string) {
     const existing = await prisma.iAMMember.findFirst({ where: { projectId, email: data.email } });

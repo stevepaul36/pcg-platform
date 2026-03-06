@@ -21,12 +21,13 @@ export class ComputeService {
     const existing = await prisma.vMInstance.findFirst({ where: { projectId, name: data.name } });
     if (existing) throw new AppError(409, "CONFLICT", `VM "${data.name}" already exists`);
     const spec = SimulationService.getMachineSpec(data.machineType);
-    const hourlyCost = BillingService.computeVMCost(data.machineType, data.diskSizeGb ?? 10);
+    const costs = BillingService.computeVMCost(data.machineType, data.zone ?? "us-central1-a", data.diskSizeGb ?? 10, data.diskType ?? "pd-standard");
+    const hourlyCost = costs.compute + costs.disk;
     const vm = await prisma.vMInstance.create({ data: {
       ...data, projectId, status: "STAGING",
       internalIP: SimulationService.generateInternalIP(),
       externalIP: SimulationService.generateExternalIP(),
-      vCPUs: spec.vCPUs, memoryMB: spec.memoryMB, hourlyCost,
+      vCPUs: spec.vcpus, memoryMB: spec.ram * 1024, hourlyCost,
     }});
     SimulationService.simulateProvisioning(vm.id);
     await logActivity(prisma, projectId, userEmail, { type: "VM_CREATE", description: `Created VM "${data.name}" (${data.machineType})`, resourceId: vm.id });
