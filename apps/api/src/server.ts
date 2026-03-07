@@ -209,24 +209,57 @@ async function cleanupExpiredSessions(): Promise<void> {
   }
 }
 
+// ── Schema guard ──────────────────────────────────────────────────────────────
+// Verifies that the live database schema matches the Prisma client by probing
+// the most recently added column.  This is a last-resort safety net — the
+// primary mechanism is `prisma migrate deploy` in the render.yaml startCommand.
+//
+// If the guard fails the process exits immediately with a clear log message
+// rather than serving 500s because a migration hasn't been applied.
+
+async function assertSchemaInSync(): Promise<void> {
+  try {
+    // LIMIT 0 returns zero rows — we only care whether the column exists.
+    await prisma.$queryRaw`SELECT "autoscaling" FROM "DataprocCluster" LIMIT 0`;
+  } catch (err: unknown) {
+    const detail = err instanceof Error ? err.message : String(err);
+    logger.fatal(
+      { err },
+      "Database schema is out of sync with the Prisma client. " +
+      "Ensure `prisma migrate deploy` runs before the server starts. " +
+      `Detail: ${detail}`,
+    );
+    await prisma.$disconnect();
+    process.exit(1);
+  }
+}
+
 // ── Start & graceful shutdown ─────────────────────────────────────────────────
 
-const server = app.listen(env.PORT, () => {
+// Declared before the listen callback so it can be assigned there and read in shutdown()
+let stopMetricsWorker: (() => void) | null = null;
+
+const server = app.listen(env.PORT, async () => {
   logger.info({ port: env.PORT, env: env.NODE_ENV }, "PCG API server started");
+
+  // 1. Verify schema is in sync — exits process loudly if not
+  await assertSchemaInSync();
+  logger.info("Database schema verified — all migrations applied");
+
+  // 2. Kick off background jobs only after schema is confirmed healthy
+  cleanupExpiredSessions();
+
+  // ── Inline metrics worker (Render free tier) ─────────────────────────────
+  // On Render, background workers require a paid plan. When METRICS_WORKER_INLINE
+  // is true, we run the metrics tick inside this process instead.
+  if (env.METRICS_WORKER_INLINE) {
+    stopMetricsWorker = startInlineMetricsWorker();
+    logger.info("Inline metrics worker started");
+  }
 });
 
-// Run cleanup on startup, then periodically
-cleanupExpiredSessions();
+// Periodic session cleanup (runs independently of startup guard)
 const cleanupTimer = setInterval(cleanupExpiredSessions, CLEANUP_INTERVAL_MS);
-
-// ── Inline metrics worker (Render free tier) ──────────────────────────────────
-// On Render, background workers require a paid plan. When METRICS_WORKER_INLINE
-// is true, we run the metrics tick inside this process instead.
-let stopMetricsWorker: (() => void) | null = null;
-if (env.METRICS_WORKER_INLINE) {
-  stopMetricsWorker = startInlineMetricsWorker();
-  logger.info("Inline metrics worker started");
-}
 
 async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, "Shutdown signal received — draining connections");

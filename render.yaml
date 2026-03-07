@@ -1,5 +1,22 @@
 # render.yaml — Render.com Blueprint
 # Deploy: Push to GitHub → Render Dashboard → New → Blueprint → Select repo
+#
+# Migration strategy
+# ──────────────────
+# Build step:   `prisma generate`  — regenerates the Prisma client from schema.prisma.
+#               This is fast, deterministic, and runs against the build image only.
+#               We do NOT run `prisma migrate deploy` here because the build runner
+#               cannot reliably reach the production database.
+#
+# Start command: `prisma migrate deploy` runs first, THEN the Node server starts.
+#               This guarantees the DB schema is always in sync with the Prisma
+#               client before any request is served. `migrate deploy` is idempotent
+#               (already-applied migrations are skipped) so restarts are safe.
+#
+# Why NOT `prisma db push --accept-data-loss`?
+#   - db push bypasses migration history → schema drift, no rollback story
+#   - --accept-data-loss can silently DROP columns in production
+#   - It is a development tool, not meant for production deployments
 
 databases:
   - name: pcg-db
@@ -8,7 +25,7 @@ databases:
     user: pcg
 
 services:
-  # ── API Server ───────────────────────────────────────────────────────────
+  # ── API Server ───────────────────────────────────────────────────────────────
   - type: web
     name: pcg-api
     runtime: node
@@ -18,10 +35,13 @@ services:
       npm run -w packages/shared build &&
       cd apps/api &&
       npx prisma generate &&
-      npx prisma db push --accept-data-loss &&
       cd ../.. &&
       npm run -w @pcg/api build
-    startCommand: node apps/api/dist/server.js
+    startCommand: >
+      cd apps/api &&
+      npx prisma migrate deploy &&
+      cd ../.. &&
+      node apps/api/dist/server.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -39,8 +59,9 @@ services:
         value: 15m
       - key: JWT_REFRESH_EXPIRES_IN
         value: 30d
-      # IMPORTANT: After first deploy, update CORS_ORIGINS to match your actual pcg-web URL.
-      # Find it in Render Dashboard → pcg-web → URL (e.g. https://pcg-web-abc123.onrender.com)
+      # IMPORTANT: After first deploy, update CORS_ORIGINS to match your
+      # actual pcg-web URL from Render Dashboard → pcg-web → URL
+      # e.g. https://pcg-web-abc123.onrender.com
       - key: CORS_ORIGINS
         value: https://pcg-web.onrender.com
       - key: ADMIN_EMAILS
@@ -54,7 +75,7 @@ services:
     healthCheckPath: /health
     autoDeploy: true
 
-  # ── Next.js Frontend ─────────────────────────────────────────────────────
+  # ── Next.js Frontend ─────────────────────────────────────────────────────────
   - type: web
     name: pcg-web
     runtime: node

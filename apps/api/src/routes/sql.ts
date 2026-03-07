@@ -92,7 +92,7 @@ sqlRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, async (
       description: `SQL instance "${instance.name}" (${instance.dbType}) created`,
       resourceId:  instance.id,
     });
-    ResourceTracker.onCreate(req.params.projectId, "SQL_INSTANCE", r.id, body.name ?? r.id).catch(() => {});
+    ResourceTracker.onCreate(req.params.projectId, "SQL_INSTANCE", instance.id, instance.name).catch(() => {});
 
     // Simulate creation delay
     setTimeout(async () => {
@@ -124,7 +124,7 @@ sqlRouter.delete("/:projectId/:instanceId", requireProjectAccess, requireProject
       resourceId:  instance.id,
       severity:    "WARNING",
     });
-    ResourceTracker.onDelete(req.params.projectId, "SQL_INSTANCE", req.params.id ?? req.params.datasetId ?? "", "").catch(() => {});
+    ResourceTracker.onDelete(req.params.projectId, "SQL_INSTANCE", instance.id, instance.name).catch(() => {});
 
     res.json({ success: true, data: null });
   } catch (err) { next(err); }
