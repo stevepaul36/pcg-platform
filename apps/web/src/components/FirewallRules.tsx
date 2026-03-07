@@ -1,14 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { FirewallApi } from "../lib/apiClient";
+import { FirewallApi, formatApiError } from "../lib/apiClient";
 import { ShieldAlert, Plus, Trash2 } from "lucide-react";
 const COMMON_PROTOCOLS = ["tcp:80","tcp:443","tcp:22","tcp:3389","udp:53","icmp"];
 export function FirewallRulesPanel() {
   const projectId = useStore(s=>s.projectId); const addToast = useStore(s=>s.addToast);
   const [items, setItems] = useState<any[]>([]); const [loading, setLoading] = useState(false); const [show, setShow] = useState(false);
   const [form, setForm] = useState({ name:"", direction:"INGRESS", action:"ALLOW", priority:1000, sourceRanges:"0.0.0.0/0", targetTags:"", protocols:["tcp:80","tcp:443"] as string[] });
-  const load = async()=>{ if(!projectId) return; setLoading(true); try{setItems(await FirewallApi.list(projectId))}catch(e:any){addToast(e.message,"error")}finally{setLoading(false)} };
+  const load = async()=>{ if(!projectId) return; setLoading(true); try{setItems(await FirewallApi.list(projectId))}catch(e:any){addToast(formatApiError(e),"error")}finally{setLoading(false)} };
   useEffect(()=>{load()},[projectId]);
   const create = async()=>{ if(!projectId) return;
     const payload = {
@@ -17,8 +17,8 @@ export function FirewallRulesPanel() {
       targetTags: form.targetTags ? form.targetTags.split(",").map(s=>s.trim()).filter(Boolean) : [],
       protocols: form.protocols,
     };
-    try{await FirewallApi.create(projectId,payload);addToast("Firewall rule created","success");setShow(false);load()}catch(e:any){addToast(e.message,"error")} };
-  const del = async(id:string)=>{ if(!projectId) return; try{await FirewallApi.delete(projectId,id);addToast("Deleted","success");load()}catch(e:any){addToast(e.message,"error")} };
+    try{await FirewallApi.create(projectId,payload);addToast("Firewall rule created","success");setShow(false);load()}catch(e:any){addToast(formatApiError(e),"error")} };
+  const del = async(id:string)=>{ if(!projectId) return; try{await FirewallApi.delete(projectId,id);addToast("Deleted","success");load()}catch(e:any){addToast(formatApiError(e),"error")} };
   const toggleProtocol = (proto:string) => {
     setForm(f => ({...f, protocols: f.protocols.includes(proto) ? f.protocols.filter(p=>p!==proto) : [...f.protocols, proto]}));
   };
@@ -36,6 +36,7 @@ export function FirewallRulesPanel() {
     {show&&<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"><div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto">
       <h2 className="text-lg font-semibold">Create Firewall Rule</h2>
       <input className="input-field" placeholder="Rule name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
+      <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens (e.g. allow-https)</p>
       <div className="grid grid-cols-2 gap-2">
         <select className="input-field" value={form.direction} onChange={e=>setForm({...form,direction:e.target.value})}><option value="INGRESS">INGRESS</option><option value="EGRESS">EGRESS</option></select>
         <select className="input-field" value={form.action} onChange={e=>setForm({...form,action:e.target.value})}><option value="ALLOW">ALLOW</option><option value="DENY">DENY</option></select>

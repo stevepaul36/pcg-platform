@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { Networking as NetApi } from "../lib/apiClient";
+import { Networking as NetApi, formatApiError } from "../lib/apiClient";
 import { Network, Globe, BalancerIcon, Plus, Trash2 } from "lucide-react";
 
 const REGIONS = ["us-central1","us-east1","europe-west1","asia-east1","global"];
@@ -38,7 +38,7 @@ export function NetworkingPanel() {
         NetApi.listVPCs(projectId), NetApi.listLBs(projectId), NetApi.listDNS(projectId),
       ]);
       setVpcs(v as any[]); setLbs(l as any[]); setDnsZones(d as any[]);
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
     finally { setLoading(false); }
   };
 
@@ -51,7 +51,7 @@ export function NetworkingPanel() {
       setVpcs(p => [v, ...p]); setShowCreate(null);
       setVpcForm({ name: "", subnet: "10.0.0.0/20", region: "us-central1", mode: "AUTO" });
       addToast(`VPC ${vpcForm.name} created`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const createLB = async () => {
@@ -61,7 +61,7 @@ export function NetworkingPanel() {
       setLbs(p => [l, ...p]); setShowCreate(null);
       setLbForm({ name: "", type: "HTTP", region: "global", backends: 1 });
       addToast(`Load balancer ${lbForm.name} created`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const createDNS = async () => {
@@ -71,7 +71,7 @@ export function NetworkingPanel() {
       setDnsZones(p => [d, ...p]); setShowCreate(null);
       setDnsForm({ name: "", dnsName: "", visibility: "public" });
       addToast(`DNS zone ${dnsForm.dnsName} created`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   return (
@@ -94,6 +94,7 @@ export function NetworkingPanel() {
           <div className="grid grid-cols-4 gap-3 mb-3">
             <div><label className="text-xs text-gcp-muted block mb-1">Name *</label>
               <input className="input w-full" value={vpcForm.name} onChange={e => setVpcForm(f => ({ ...f, name: e.target.value }))} placeholder="my-vpc" /></div>
+            <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens (e.g. my-vpc)</p>
             <div><label className="text-xs text-gcp-muted block mb-1">Subnet CIDR</label>
               <input className="input w-full" value={vpcForm.subnet} onChange={e => setVpcForm(f => ({ ...f, subnet: e.target.value }))} /></div>
             <div><label className="text-xs text-gcp-muted block mb-1">Region</label>
@@ -116,6 +117,7 @@ export function NetworkingPanel() {
           <div className="grid grid-cols-4 gap-3 mb-3">
             <div><label className="text-xs text-gcp-muted block mb-1">Name *</label>
               <input className="input w-full" value={lbForm.name} onChange={e => setLbForm(f => ({ ...f, name: e.target.value }))} placeholder="my-lb" /></div>
+            <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens (e.g. my-lb)</p>
             <div><label className="text-xs text-gcp-muted block mb-1">Type</label>
               <select className="input w-full" value={lbForm.type} onChange={e => setLbForm(f => ({ ...f, type: e.target.value }))}>
                 <option>HTTP</option><option>HTTPS</option><option>TCP</option><option>UDP</option></select></div>
@@ -138,6 +140,7 @@ export function NetworkingPanel() {
           <div className="grid grid-cols-3 gap-3 mb-3">
             <div><label className="text-xs text-gcp-muted block mb-1">Zone Name *</label>
               <input className="input w-full" value={dnsForm.name} onChange={e => setDnsForm(f => ({ ...f, name: e.target.value }))} placeholder="my-zone" /></div>
+            <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens (e.g. my-zone)</p>
             <div><label className="text-xs text-gcp-muted block mb-1">DNS Name *</label>
               <input className="input w-full" value={dnsForm.dnsName} onChange={e => setDnsForm(f => ({ ...f, dnsName: e.target.value }))} placeholder="example.com." /></div>
             <div><label className="text-xs text-gcp-muted block mb-1">Visibility</label>

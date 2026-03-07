@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { GKE as GKEApi } from "../lib/apiClient";
+import { GKE as GKEApi, formatApiError } from "../lib/apiClient";
 import { Container, Plus, Trash2 } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -27,7 +27,7 @@ export function GKEPanel() {
     if (!projectId) return;
     setLoading(true);
     try { setClusters((await GKEApi.list(projectId)) as any[]); }
-    catch (e: any) { addToast(e.message, "error"); }
+    catch (e: any) { addToast(formatApiError(e), "error"); }
     finally { setLoading(false); }
   };
 
@@ -42,7 +42,7 @@ export function GKEPanel() {
       setForm({ name: "", zone: "us-central1-a", nodeCount: 3, machineType: "e2-medium", diskGb: 100 });
       addToast(`Cluster ${form.name} provisioning...`, "info");
       setTimeout(load, 6000);
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const deleteCluster = async (c: any) => {
@@ -52,7 +52,7 @@ export function GKEPanel() {
       setClusters(p => p.map(x => x.id === c.id ? { ...x, status: "STOPPING" } : x));
       addToast(`Cluster ${c.name} deleting...`, "info");
       setTimeout(() => setClusters(p => p.filter(x => x.id !== c.id)), 3500);
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   return (
@@ -73,6 +73,7 @@ export function GKEPanel() {
           <div className="grid grid-cols-3 gap-3 mb-3">
             <div><label className="text-xs text-gcp-muted block mb-1">Name *</label>
               <input className="input w-full" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="my-cluster" /></div>
+                <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens (e.g. my-cluster)</p>
             <div><label className="text-xs text-gcp-muted block mb-1">Zone</label>
               <select className="input w-full" value={form.zone} onChange={e => setForm(f => ({ ...f, zone: e.target.value }))}>
                 {ZONES.map(z => <option key={z}>{z}</option>)}</select></div>

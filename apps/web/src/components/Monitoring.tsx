@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { Monitoring as MonApi } from "../lib/apiClient";
+import { Monitoring as MonApi, formatApiError } from "../lib/apiClient";
 import { Bell, Plus, Trash2, Activity, Globe } from "lucide-react";
 
 const CONDITION_TYPES = ["METRIC_THRESHOLD","METRIC_ABSENCE","UPTIME_CHECK"];
@@ -20,13 +20,13 @@ export function MonitoringPanel() {
   const [alertForm, setAlertForm] = useState({ name:"", displayName:"", conditionType:"METRIC_THRESHOLD", metricType:METRICS[0], threshold:0.8, duration:"60s", notifyEmails:[""] });
   const [uptimeForm, setUptimeForm] = useState({ displayName:"", monitoredUrl:"", checkInterval:"60s", timeout:"10s", regions:["USA"] });
 
-  const load = async () => { if(!projectId) return; setLoading(true); try { setAlerts(await MonApi.listAlerts(projectId)); setUptimes(await MonApi.listUptime(projectId)); } catch(e:any){addToast(e.message,"error")} finally{setLoading(false)} };
+  const load = async () => { if(!projectId) return; setLoading(true); try { setAlerts(await MonApi.listAlerts(projectId)); setUptimes(await MonApi.listUptime(projectId)); } catch(e:any){addToast(formatApiError(e),"error")} finally{setLoading(false)} };
   useEffect(() => { load(); }, [projectId]);
 
-  const createAlert = async () => { if(!projectId) return; try { await MonApi.createAlert(projectId, {...alertForm, notifyEmails: alertForm.notifyEmails.filter(Boolean)}); addToast("Alert policy created","success"); setShowCreate(false); load(); } catch(e:any){addToast(e.message,"error")} };
-  const createUptime = async () => { if(!projectId) return; try { await MonApi.createUptime(projectId, uptimeForm); addToast("Uptime check created","success"); setShowCreate(false); load(); } catch(e:any){addToast(e.message,"error")} };
-  const deleteAlert = async (id:string) => { if(!projectId) return; try { await MonApi.deleteAlert(projectId,id); addToast("Deleted","success"); load(); } catch(e:any){addToast(e.message,"error")} };
-  const deleteUptime = async (id:string) => { if(!projectId) return; try { await MonApi.deleteUptime(projectId,id); addToast("Deleted","success"); load(); } catch(e:any){addToast(e.message,"error")} };
+  const createAlert = async () => { if(!projectId) return; try { await MonApi.createAlert(projectId, {...alertForm, notifyEmails: alertForm.notifyEmails.filter(Boolean)}); addToast("Alert policy created","success"); setShowCreate(false); load(); } catch(e:any){addToast(formatApiError(e),"error")} };
+  const createUptime = async () => { if(!projectId) return; try { await MonApi.createUptime(projectId, uptimeForm); addToast("Uptime check created","success"); setShowCreate(false); load(); } catch(e:any){addToast(formatApiError(e),"error")} };
+  const deleteAlert = async (id:string) => { if(!projectId) return; try { await MonApi.deleteAlert(projectId,id); addToast("Deleted","success"); load(); } catch(e:any){addToast(formatApiError(e),"error")} };
+  const deleteUptime = async (id:string) => { if(!projectId) return; try { await MonApi.deleteUptime(projectId,id); addToast("Deleted","success"); load(); } catch(e:any){addToast(formatApiError(e),"error")} };
 
   return (<div className="p-6 space-y-6">
     <div className="flex items-center justify-between"><h1 className="text-xl font-semibold flex items-center gap-2"><Bell className="w-5 h-5 text-gcp-blue"/>Cloud Monitoring</h1>
@@ -42,6 +42,7 @@ export function MonitoringPanel() {
     {showCreate&&<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"><div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
       <h2 className="text-lg font-semibold">{tab==="alerts"?"Create Alert Policy":"Create Uptime Check"}</h2>
       {tab==="alerts"?<><input className="input-field" placeholder="Policy name (lowercase)" value={alertForm.name} onChange={e=>setAlertForm({...alertForm,name:e.target.value})}/>
+      <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens (e.g. my-policy)</p>
         <input className="input-field" placeholder="Display name" value={alertForm.displayName} onChange={e=>setAlertForm({...alertForm,displayName:e.target.value})}/>
         <select className="input-field" value={alertForm.conditionType} onChange={e=>setAlertForm({...alertForm,conditionType:e.target.value})}>{CONDITION_TYPES.map(c=><option key={c}>{c}</option>)}</select>
         <select className="input-field" value={alertForm.metricType} onChange={e=>setAlertForm({...alertForm,metricType:e.target.value})}>{METRICS.map(m=><option key={m}>{m}</option>)}</select>

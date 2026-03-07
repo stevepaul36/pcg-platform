@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { MemorystoreApi } from "../lib/apiClient";
+import { MemorystoreApi, formatApiError } from "../lib/apiClient";
 import { Database, Plus, Trash2 } from "lucide-react";
 const ENGINES = ["REDIS","MEMCACHED"];
 const VERSIONS: Record<string,string[]> = { REDIS:["REDIS_7_0","REDIS_6_X"], MEMCACHED:["MEMCACHE_1_6"] };
@@ -12,10 +12,10 @@ export function MemorystorePanel() {
   const projectId = useStore(s=>s.projectId); const addToast = useStore(s=>s.addToast);
   const [instances, setInstances] = useState<any[]>([]); const [loading, setLoading] = useState(false); const [show, setShow] = useState(false);
   const [form, setForm] = useState({ name:"", engine:"REDIS", version:"REDIS_7_0", tier:"BASIC", memorySizeGb:1, region:"us-central1" });
-  const load = async()=>{ if(!projectId) return; setLoading(true); try{setInstances(await MemorystoreApi.list(projectId))}catch(e:any){addToast(e.message,"error")}finally{setLoading(false)} };
+  const load = async()=>{ if(!projectId) return; setLoading(true); try{setInstances(await MemorystoreApi.list(projectId))}catch(e:any){addToast(formatApiError(e),"error")}finally{setLoading(false)} };
   useEffect(()=>{load()},[projectId]);
-  const create = async()=>{ if(!projectId) return; try{await MemorystoreApi.create(projectId,form);addToast("Instance creating...","success");setShow(false);setTimeout(load,3500)}catch(e:any){addToast(e.message,"error")} };
-  const del = async(id:string)=>{ if(!projectId) return; try{await MemorystoreApi.delete(projectId,id);addToast("Deleted","success");load()}catch(e:any){addToast(e.message,"error")} };
+  const create = async()=>{ if(!projectId) return; try{await MemorystoreApi.create(projectId,form);addToast("Instance creating...","success");setShow(false);setTimeout(load,3500)}catch(e:any){addToast(formatApiError(e),"error")} };
+  const del = async(id:string)=>{ if(!projectId) return; try{await MemorystoreApi.delete(projectId,id);addToast("Deleted","success");load()}catch(e:any){addToast(formatApiError(e),"error")} };
   return(<div className="p-6 space-y-6">
     <div className="flex items-center justify-between"><h1 className="text-xl font-semibold flex items-center gap-2"><Database className="w-5 h-5 text-gcp-blue"/>Memorystore</h1>
       <button className="btn-primary flex items-center gap-1" onClick={()=>setShow(true)}><Plus className="w-4 h-4"/>Create Instance</button></div>
@@ -28,6 +28,7 @@ export function MemorystorePanel() {
     {show&&<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"><div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
       <h2 className="text-lg font-semibold">Create Memorystore Instance</h2>
       <input className="input-field" placeholder="Instance name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
+      <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens (e.g. my-cache)</p>
       <select className="input-field" value={form.engine} onChange={e=>{const eng=e.target.value;setForm({...form,engine:eng,version:VERSIONS[eng][0]})}}>{ENGINES.map(e=><option key={e}>{e}</option>)}</select>
       <select className="input-field" value={form.version} onChange={e=>setForm({...form,version:e.target.value})}>{(VERSIONS[form.engine]||[]).map(v=><option key={v}>{v}</option>)}</select>
       <select className="input-field" value={form.tier} onChange={e=>setForm({...form,tier:e.target.value})}>{TIERS.map(t=><option key={t}>{t}</option>)}</select>

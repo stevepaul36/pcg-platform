@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { Functions as FnApi } from "../lib/apiClient";
+import { Functions as FnApi, formatApiError } from "../lib/apiClient";
 import { Zap, Plus, Trash2 } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -26,7 +26,7 @@ export function CloudFunctions() {
     if (!projectId) return;
     setLoading(true);
     try { setFns((await FnApi.list(projectId)) as any[]); }
-    catch (e: any) { addToast(e.message, "error"); }
+    catch (e: any) { addToast(formatApiError(e), "error"); }
     finally { setLoading(false); }
   };
 
@@ -41,7 +41,7 @@ export function CloudFunctions() {
       setForm({ name: "", runtime: "nodejs20", region: "us-central1", entryPoint: "helloWorld", trigger: "HTTP", memoryMb: 256, timeoutSec: 60 });
       addToast(`Function ${form.name} deploying...`, "info");
       setTimeout(load, 4000);
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const deleteFn = async (fn: any) => {
@@ -50,7 +50,7 @@ export function CloudFunctions() {
       await FnApi.delete(projectId, fn.id);
       setFns(p => p.filter(f => f.id !== fn.id));
       addToast(`Function ${fn.name} deleted`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   return (
@@ -72,6 +72,7 @@ export function CloudFunctions() {
             <div>
               <label className="text-xs text-gcp-muted block mb-1">Name *</label>
               <input className="input w-full" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="my-function" />
+                <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens (e.g. my-function)</p>
             </div>
             <div>
               <label className="text-xs text-gcp-muted block mb-1">Runtime</label>

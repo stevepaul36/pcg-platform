@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { DataprocApi } from "../lib/apiClient";
+import { DataprocApi, formatApiError } from "../lib/apiClient";
 import { Server, Plus, Trash2 } from "lucide-react";
 const REGIONS = ["us-central1","us-east1","europe-west1","asia-east1"];
 const MASTER_TYPES = ["n1-standard-2","n1-standard-4","n1-standard-8","n2-standard-4"];
@@ -12,10 +12,10 @@ export function DataprocPanelPanel() {
   const projectId = useStore(s=>s.projectId); const addToast = useStore(s=>s.addToast);
   const [items, setItems] = useState<any[]>([]); const [loading, setLoading] = useState(false); const [show, setShow] = useState(false);
   const [form, setForm] = useState({ name:"", region:"us-central1", masterType:"n1-standard-4", workerType:"n1-standard-2", workerCount:2, imageVersion:"2.2-debian12", autoscaling:false });
-  const load = async()=>{ if(!projectId) return; setLoading(true); try{setItems(await DataprocApi.list(projectId))}catch(e:any){addToast(e.message,"error")}finally{setLoading(false)} };
+  const load = async()=>{ if(!projectId) return; setLoading(true); try{setItems(await DataprocApi.list(projectId))}catch(e:any){addToast(formatApiError(e),"error")}finally{setLoading(false)} };
   useEffect(()=>{load()},[projectId]);
-  const create = async()=>{ if(!projectId) return; try{await DataprocApi.create(projectId,form);addToast("Cluster creating...","success");setShow(false);setTimeout(load,4500)}catch(e:any){addToast(e.message,"error")} };
-  const del = async(id:string)=>{ if(!projectId) return; try{await DataprocApi.delete(projectId,id);addToast("Deleted","success");load()}catch(e:any){addToast(e.message,"error")} };
+  const create = async()=>{ if(!projectId) return; try{await DataprocApi.create(projectId,form);addToast("Cluster creating...","success");setShow(false);setTimeout(load,4500)}catch(e:any){addToast(formatApiError(e),"error")} };
+  const del = async(id:string)=>{ if(!projectId) return; try{await DataprocApi.delete(projectId,id);addToast("Deleted","success");load()}catch(e:any){addToast(formatApiError(e),"error")} };
   return(<div className="p-6 space-y-6">
     <div className="flex items-center justify-between"><h1 className="text-xl font-semibold flex items-center gap-2"><Server className="w-5 h-5 text-gcp-blue"/>Dataproc</h1>
       <button className="btn-primary flex items-center gap-1" onClick={()=>setShow(true)}><Plus className="w-4 h-4"/>Create Cluster</button></div>
@@ -29,6 +29,7 @@ export function DataprocPanelPanel() {
     {show&&<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"><div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto">
       <h2 className="text-lg font-semibold">Create Dataproc Cluster</h2>
       <input className="input-field" placeholder="Cluster name (lowercase)" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
+      <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens — no spaces (e.g. my-cluster)</p>
       <select className="input-field" value={form.region} onChange={e=>setForm({...form,region:e.target.value})}>{REGIONS.map(r=><option key={r}>{r}</option>)}</select>
       <select className="input-field" value={form.imageVersion} onChange={e=>setForm({...form,imageVersion:e.target.value})}>{IMAGE_VERSIONS.map(v=><option key={v}>{v}</option>)}</select>
       <div className="grid grid-cols-2 gap-2">

@@ -109,6 +109,7 @@ function CreateSQLModal({ onClose }: { onClose: () => void }) {
             <label className="block text-sm font-medium mb-1">Instance name</label>
             <input className="input-field" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="my-database" required />
+              <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens (e.g. my-database)</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

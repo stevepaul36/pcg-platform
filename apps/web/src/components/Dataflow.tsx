@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { Dataflow as DataflowApi } from "../lib/apiClient";
+import { Dataflow as DataflowApi, formatApiError } from "../lib/apiClient";
 import { GitBranch, Plus, Trash2, StopCircle } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -42,7 +42,7 @@ export function DataflowPanel() {
     if (!projectId) return;
     setLoading(true);
     try { setJobs((await DataflowApi.list(projectId)) as any[]); }
-    catch (e: any) { addToast(e.message, "error"); }
+    catch (e: any) { addToast(formatApiError(e), "error"); }
     finally { setLoading(false); }
   };
 
@@ -56,7 +56,7 @@ export function DataflowPanel() {
       setShowCreate(false);
       setForm({ name: "", template: TEMPLATES[0], region: "us-central1", workers: 1, maxWorkers: 10 });
       addToast(`Job ${form.name} started`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const cancelJob = async (j: any) => {
@@ -65,7 +65,7 @@ export function DataflowPanel() {
       const updated = await DataflowApi.cancel(projectId, j.id);
       setJobs(p => p.map(x => x.id === j.id ? { ...x, status: "JOB_STATE_CANCELLED" } : x));
       addToast(`Job ${j.name} cancelled`, "info");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const deleteJob = async (j: any) => {
@@ -74,7 +74,7 @@ export function DataflowPanel() {
       await DataflowApi.delete(projectId, j.id);
       setJobs(p => p.filter(x => x.id !== j.id));
       addToast(`Job ${j.name} deleted`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const fmtBytes = (n: number) => {
@@ -102,6 +102,7 @@ export function DataflowPanel() {
           <div className="grid grid-cols-3 gap-3 mb-3">
             <div><label className="text-xs text-gcp-muted block mb-1">Job Name *</label>
               <input className="input w-full" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="my-pipeline" /></div>
+                <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens (e.g. my-pipeline)</p>
             <div><label className="text-xs text-gcp-muted block mb-1">Template</label>
               <select className="input w-full" value={form.template} onChange={e => setForm(f => ({ ...f, template: e.target.value }))}>
                 {TEMPLATES.map(t => <option key={t}>{t}</option>)}</select></div>

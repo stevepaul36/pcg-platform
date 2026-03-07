@@ -6,7 +6,7 @@ import { Gauge } from "lucide-react";
 export function QuotasPanel() {
   const projectId = useStore(s=>s.projectId); const addToast = useStore(s=>s.addToast);
   const [quotas, setQuotas] = useState<any[]>([]); const [loading, setLoading] = useState(false);
-  const load = async()=>{ if(!projectId) return; setLoading(true); try{setQuotas(await QuotasApi.list(projectId))}catch(e:any){addToast(e.message,"error")}finally{setLoading(false)} };
+  const load = async()=>{ if(!projectId) return; setLoading(true); try{setQuotas(await QuotasApi.list(projectId))}catch(e:any){addToast(formatApiError(e),"error")}finally{setLoading(false)} };
   useEffect(()=>{load()},[projectId]);
   return(<div className="p-6 space-y-6">
     <h1 className="text-xl font-semibold flex items-center gap-2"><Gauge className="w-5 h-5 text-gcp-blue"/>Quotas & Limits</h1>

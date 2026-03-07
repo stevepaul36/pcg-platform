@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { BigQuery as BQApi } from "../lib/apiClient";
+import { BigQuery as BQApi, formatApiError } from "../lib/apiClient";
 import { Database, Plus, Trash2, Table2, ChevronRight, ChevronDown } from "lucide-react";
 
 export function BigQueryPanel() {
@@ -22,7 +22,7 @@ export function BigQueryPanel() {
     try {
       const data = await BQApi.list(projectId);
       setDatasets(data as any[]);
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
     finally { setLoading(false); }
   };
 
@@ -36,7 +36,7 @@ export function BigQueryPanel() {
       setShowCreate(false);
       setForm({ name: "", location: "US", description: "" });
       addToast(`Dataset ${form.name} created`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const handleDeleteDataset = async (ds: any) => {
@@ -45,7 +45,7 @@ export function BigQueryPanel() {
       await BQApi.deleteDataset(projectId, ds.id);
       setDatasets(prev => prev.filter(d => d.id !== ds.id));
       addToast(`Dataset ${ds.name} deleted`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const handleCreateTable = async (datasetId: string) => {
@@ -56,7 +56,7 @@ export function BigQueryPanel() {
       setShowCreateTable(null);
       setTableForm({ name: "", tableType: "TABLE" });
       addToast(`Table ${tableForm.name} created`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const handleDeleteTable = async (datasetId: string, tableId: string, tableName: string) => {
@@ -65,7 +65,7 @@ export function BigQueryPanel() {
       await BQApi.deleteTable(projectId, tableId);
       setDatasets(prev => prev.map(d => d.id === datasetId ? { ...d, tables: d.tables.filter((t: any) => t.id !== tableId) } : d));
       addToast(`Table ${tableName} deleted`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const LOCATIONS = ["US", "EU", "us-central1", "europe-west1", "asia-east1"];
@@ -89,6 +89,7 @@ export function BigQueryPanel() {
             <div>
               <label className="text-xs text-gcp-muted block mb-1">Dataset ID *</label>
               <input className="input w-full" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="my_dataset" />
+                <p className="text-xs text-gcp-muted mt-0.5">Letters, digits, underscores only — no hyphens (e.g. my_dataset)</p>
             </div>
             <div>
               <label className="text-xs text-gcp-muted block mb-1">Location</label>

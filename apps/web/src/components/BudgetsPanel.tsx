@@ -1,16 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { BudgetsApi } from "../lib/apiClient";
+import { BudgetsApi, formatApiError } from "../lib/apiClient";
 import { DollarSign, Plus, Trash2 } from "lucide-react";
 export function BudgetsPanelPanel() {
   const projectId = useStore(s=>s.projectId); const addToast = useStore(s=>s.addToast);
   const [items, setItems] = useState<any[]>([]); const [loading, setLoading] = useState(false); const [show, setShow] = useState(false);
   const [form, setForm] = useState<any>({ "name":"", "amountUSD":100 });
-  const load = async()=>{ if(!projectId) return; setLoading(true); try{setItems(await BudgetsApi.list(projectId))}catch(e:any){addToast(e.message,"error")}finally{setLoading(false)} };
+  const load = async()=>{ if(!projectId) return; setLoading(true); try{setItems(await BudgetsApi.list(projectId))}catch(e:any){addToast(formatApiError(e),"error")}finally{setLoading(false)} };
   useEffect(()=>{load()},[projectId]);
-  const create = async()=>{ if(!projectId) return; try{await BudgetsApi.create(projectId,form);addToast("Budget created","success");setShow(false);load()}catch(e:any){addToast(e.message,"error")} };
-  const del = async(id:string)=>{ if(!projectId) return; try{await BudgetsApi.delete(projectId,id);addToast("Deleted","success");load()}catch(e:any){addToast(e.message,"error")} };
+  const create = async()=>{ if(!projectId) return; try{await BudgetsApi.create(projectId,form);addToast("Budget created","success");setShow(false);load()}catch(e:any){addToast(formatApiError(e),"error")} };
+  const del = async(id:string)=>{ if(!projectId) return; try{await BudgetsApi.delete(projectId,id);addToast("Deleted","success");load()}catch(e:any){addToast(formatApiError(e),"error")} };
   return(<div className="p-6 space-y-6">
     <div className="flex items-center justify-between"><h1 className="text-xl font-semibold flex items-center gap-2"><DollarSign className="w-5 h-5 text-gcp-blue"/>Budgets</h1>
       <button className="btn-primary flex items-center gap-1" onClick={()=>setShow(true)}><Plus className="w-4 h-4"/>Create</button></div>

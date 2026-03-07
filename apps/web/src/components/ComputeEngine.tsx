@@ -170,6 +170,7 @@ function CreateVMModal({ onClose }: { onClose: () => void }) {
             <label className="block text-sm font-medium mb-1">Instance name</label>
             <input className="input-field" value={form.name} onChange={(e) => set("name", e.target.value)}
               placeholder="my-instance" required pattern="^[a-z][a-z0-9-]{0,61}[a-z0-9]$" />
+              <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens, 2–63 chars (e.g. my-instance)</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

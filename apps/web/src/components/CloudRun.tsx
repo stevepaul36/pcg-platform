@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { CloudRun as CloudRunApi } from "../lib/apiClient";
+import { CloudRun as CloudRunApi, formatApiError } from "../lib/apiClient";
 import { Wind, Plus, Trash2, ExternalLink } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -24,7 +24,7 @@ export function CloudRunPanel() {
     if (!projectId) return;
     setLoading(true);
     try { setServices((await CloudRunApi.list(projectId)) as any[]); }
-    catch (e: any) { addToast(e.message, "error"); }
+    catch (e: any) { addToast(formatApiError(e), "error"); }
     finally { setLoading(false); }
   };
 
@@ -39,7 +39,7 @@ export function CloudRunPanel() {
       setForm({ name: "", region: "us-central1", image: "", cpu: "1", memoryMb: 512, minInstances: 0, maxInstances: 100 });
       addToast(`Service ${form.name} deploying...`, "info");
       setTimeout(load, 4000);
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const deleteSvc = async (s: any) => {
@@ -48,7 +48,7 @@ export function CloudRunPanel() {
       await CloudRunApi.delete(projectId, s.id);
       setServices(p => p.filter(x => x.id !== s.id));
       addToast(`Service ${s.name} deleted`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   return (
@@ -69,6 +69,7 @@ export function CloudRunPanel() {
           <div className="grid grid-cols-3 gap-3 mb-3">
             <div><label className="text-xs text-gcp-muted block mb-1">Name *</label>
               <input className="input w-full" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="my-service" /></div>
+                <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens (e.g. my-service)</p>
             <div><label className="text-xs text-gcp-muted block mb-1">Container Image *</label>
               <input className="input w-full" value={form.image} onChange={e => setForm(f => ({ ...f, image: e.target.value }))} placeholder="gcr.io/my-project/my-image" /></div>
             <div><label className="text-xs text-gcp-muted block mb-1">Region</label>

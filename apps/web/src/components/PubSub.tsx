@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { PubSub as PubSubApi } from "../lib/apiClient";
+import { PubSub as PubSubApi, formatApiError } from "../lib/apiClient";
 import { Radio, Plus, Trash2, ChevronRight, ChevronDown } from "lucide-react";
 
 export function PubSubPanel() {
@@ -19,7 +19,7 @@ export function PubSubPanel() {
     if (!projectId) return;
     setLoading(true);
     try { setTopics((await PubSubApi.list(projectId)) as any[]); }
-    catch (e: any) { addToast(e.message, "error"); }
+    catch (e: any) { addToast(formatApiError(e), "error"); }
     finally { setLoading(false); }
   };
 
@@ -31,7 +31,7 @@ export function PubSubPanel() {
       const t = await PubSubApi.createTopic(projectId, { name });
       setTopics(p => [{ ...t, subscriptions: [] }, ...p]);
       setShowCreate(false); setName(""); addToast(`Topic ${name} created`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const deleteTopic = async (t: any) => {
@@ -39,7 +39,7 @@ export function PubSubPanel() {
     try {
       await PubSubApi.deleteTopic(projectId, t.id);
       setTopics(p => p.filter(x => x.id !== t.id)); addToast(`Topic ${t.name} deleted`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const createSub = async (topicId: string) => {
@@ -48,7 +48,7 @@ export function PubSubPanel() {
       const s = await PubSubApi.createSubscription(projectId, topicId, subForm);
       setTopics(p => p.map(t => t.id === topicId ? { ...t, subscriptions: [...(t.subscriptions || []), s] } : t));
       setShowSub(null); setSubForm({ name: "", ackDeadline: 10 }); addToast(`Subscription created`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const deleteSub = async (topicId: string, subId: string, subName: string) => {
@@ -57,7 +57,7 @@ export function PubSubPanel() {
       await PubSubApi.deleteSubscription(projectId, subId);
       setTopics(p => p.map(t => t.id === topicId ? { ...t, subscriptions: t.subscriptions.filter((s: any) => s.id !== subId) } : t));
       addToast(`Subscription ${subName} deleted`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   return (
@@ -79,6 +79,7 @@ export function PubSubPanel() {
             <div>
               <label className="text-xs text-gcp-muted block mb-1">Topic ID *</label>
               <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="my-topic" />
+                <p className="text-xs text-gcp-muted mt-0.5">Letters, digits, hyphens, dots (e.g. my-topic)</p>
             </div>
             <button onClick={createTopic} className="btn-primary">Create</button>
             <button onClick={() => setShowCreate(false)} className="btn">Cancel</button>

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { Security as SecApi } from "../lib/apiClient";
+import { Security as SecApi, formatApiError } from "../lib/apiClient";
 import { Lock, Key, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 
 function Section({ title, icon: Icon, children }: any) {
@@ -41,7 +41,7 @@ export function SecurityPanel() {
     try {
       const [s, k] = await Promise.all([SecApi.listSecrets(projectId), SecApi.listKeyRings(projectId)]);
       setSecrets(s as any[]); setKeyRings(k as any[]);
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
     finally { setLoading(false); }
   };
 
@@ -54,7 +54,7 @@ export function SecurityPanel() {
       setSecrets(p => [s, ...p]); setShowCreate(null);
       setSecretForm({ name: "", replication: "automatic" });
       addToast(`Secret ${secretForm.name} created`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const deleteSecret = async (s: any) => {
@@ -63,7 +63,7 @@ export function SecurityPanel() {
       await SecApi.deleteSecret(projectId, s.id);
       setSecrets(p => p.filter(x => x.id !== s.id));
       addToast(`Secret ${s.name} deleted`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const createKeyRing = async () => {
@@ -73,7 +73,7 @@ export function SecurityPanel() {
       setKeyRings(p => [{ ...r, keys: [] }, ...p]); setShowCreate(null);
       setRingForm({ name: "", location: "global" });
       addToast(`Key ring ${ringForm.name} created`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const deleteKeyRing = async (r: any) => {
@@ -82,7 +82,7 @@ export function SecurityPanel() {
       await SecApi.deleteKeyRing(projectId, r.id);
       setKeyRings(p => p.filter(x => x.id !== r.id));
       addToast(`Key ring ${r.name} deleted`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const createKey = async (ringId: string) => {
@@ -92,7 +92,7 @@ export function SecurityPanel() {
       setKeyRings(p => p.map(r => r.id === ringId ? { ...r, keys: [...(r.keys || []), k] } : r));
       setShowKey(null); setKeyForm({ name: "", purpose: "ENCRYPT_DECRYPT", rotationDays: 90 });
       addToast(`Key ${keyForm.name} created`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   return (
@@ -114,6 +114,7 @@ export function SecurityPanel() {
           <div className="flex gap-3 items-end mb-3">
             <div><label className="text-xs text-gcp-muted block mb-1">Secret Name *</label>
               <input className="input" value={secretForm.name} onChange={e => setSecretForm(f => ({ ...f, name: e.target.value }))} placeholder="my-secret" /></div>
+            <p className="text-xs text-gcp-muted mt-0.5">Letters, digits, hyphens, underscores (e.g. my-secret)</p>
             <div><label className="text-xs text-gcp-muted block mb-1">Replication</label>
               <select className="input" value={secretForm.replication} onChange={e => setSecretForm(f => ({ ...f, replication: e.target.value }))}>
                 <option>automatic</option><option>user-managed</option></select></div>
@@ -129,6 +130,7 @@ export function SecurityPanel() {
           <div className="flex gap-3 items-end mb-3">
             <div><label className="text-xs text-gcp-muted block mb-1">Key Ring Name *</label>
               <input className="input" value={ringForm.name} onChange={e => setRingForm(f => ({ ...f, name: e.target.value }))} placeholder="my-keyring" /></div>
+            <p className="text-xs text-gcp-muted mt-0.5">Letters, digits, hyphens, underscores (e.g. my-keyring)</p>
             <div><label className="text-xs text-gcp-muted block mb-1">Location</label>
               <select className="input" value={ringForm.location} onChange={e => setRingForm(f => ({ ...f, location: e.target.value }))}>
                 <option>global</option><option>us-central1</option><option>europe-west1</option><option>asia-east1</option></select></div>
@@ -184,6 +186,7 @@ export function SecurityPanel() {
                     <div className="pt-3 flex gap-3 items-end">
                       <div><label className="text-xs text-gcp-muted block mb-1">Key Name *</label>
                         <input className="input" value={keyForm.name} onChange={e => setKeyForm(f => ({ ...f, name: e.target.value }))} placeholder="my-key" /></div>
+                        <p className="text-xs text-gcp-muted mt-0.5">Letters, digits, hyphens, underscores</p>
                       <div><label className="text-xs text-gcp-muted block mb-1">Purpose</label>
                         <select className="input" value={keyForm.purpose} onChange={e => setKeyForm(f => ({ ...f, purpose: e.target.value }))}>
                           <option>ENCRYPT_DECRYPT</option><option>SIGN_VERIFY</option><option>ASYMMETRIC_DECRYPT</option></select></div>

@@ -116,6 +116,7 @@ function CreateBucketModal({ onClose }: { onClose: () => void }) {
             <label className="block text-sm font-medium mb-1">Bucket name (globally unique)</label>
             <input className="input-field" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="my-bucket-name" required />
+              <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens, dots (e.g. my-bucket)</p>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Location</label>

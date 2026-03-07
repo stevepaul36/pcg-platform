@@ -9,7 +9,7 @@ export function BillingDashboard() {
   const load = async()=>{ if(!projectId) return; setLoading(true); try{
     const [s,c] = await Promise.all([BillingApi.summary(projectId), BillingApi.costs(projectId)]);
     setSummary(s); setRecords((c as any).records||[]);
-  }catch(e:any){addToast(e.message,"error")}finally{setLoading(false)} };
+  }catch(e:any){addToast(formatApiError(e),"error")}finally{setLoading(false)} };
   useEffect(()=>{load()},[projectId]);
   const cats = summary ? [
     {label:"Compute",val:summary.compute,color:"bg-blue-500"},

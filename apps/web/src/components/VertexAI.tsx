@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { VertexAI as VertexApi } from "../lib/apiClient";
+import { VertexAI as VertexApi, formatApiError } from "../lib/apiClient";
 import { Brain, Plus, Trash2, Cpu } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -26,7 +26,7 @@ export function VertexAIPanel() {
     if (!projectId) return;
     setLoading(true);
     try { setModels((await VertexApi.listModels(projectId)) as any[]); }
-    catch (e: any) { addToast(e.message, "error"); }
+    catch (e: any) { addToast(formatApiError(e), "error"); }
     finally { setLoading(false); }
   };
 
@@ -41,7 +41,7 @@ export function VertexAIPanel() {
       setForm({ name: "", displayName: "", framework: "TensorFlow", region: "us-central1" });
       addToast(`Model ${form.displayName} uploading...`, "info");
       setTimeout(load, 5000);
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const deleteModel = async (m: any) => {
@@ -50,7 +50,7 @@ export function VertexAIPanel() {
       await VertexApi.deleteModel(projectId, m.id);
       setModels(p => p.filter(x => x.id !== m.id));
       addToast(`Model ${m.name} deleted`, "success");
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   const deployEndpoint = async (m: any) => {
@@ -59,7 +59,7 @@ export function VertexAIPanel() {
       await VertexApi.createEndpoint(projectId, m.id, { name: `${m.name}-endpoint` });
       addToast(`Endpoint for ${m.name} deploying...`, "info");
       setTimeout(load, 4000);
-    } catch (e: any) { addToast(e.message, "error"); }
+    } catch (e: any) { addToast(formatApiError(e), "error"); }
   };
 
   return (
@@ -80,6 +80,7 @@ export function VertexAIPanel() {
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div><label className="text-xs text-gcp-muted block mb-1">Model ID *</label>
               <input className="input w-full" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="my-model" /></div>
+                <p className="text-xs text-gcp-muted mt-0.5">Letters, digits, hyphens, underscores (e.g. my-model)</p>
             <div><label className="text-xs text-gcp-muted block mb-1">Display Name *</label>
               <input className="input w-full" value={form.displayName} onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))} placeholder="My Model v1" /></div>
             <div><label className="text-xs text-gcp-muted block mb-1">Framework</label>

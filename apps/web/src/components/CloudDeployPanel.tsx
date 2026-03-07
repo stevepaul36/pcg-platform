@@ -1,16 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { DeployApi } from "../lib/apiClient";
+import { DeployApi, formatApiError } from "../lib/apiClient";
 import { Rocket, Plus, Trash2, PlusCircle, X } from "lucide-react";
 export function CloudDeployPanelPanel() {
   const projectId = useStore(s=>s.projectId); const addToast = useStore(s=>s.addToast);
   const [items, setItems] = useState<any[]>([]); const [loading, setLoading] = useState(false); const [show, setShow] = useState(false);
   const [form, setForm] = useState<any>({ name:"", region:"us-central1", description:"", stages:[{name:"dev",targetId:"dev-cluster",profiles:[]}] });
-  const load = async()=>{ if(!projectId) return; setLoading(true); try{setItems(await DeployApi.list(projectId))}catch(e:any){addToast(e.message,"error")}finally{setLoading(false)} };
+  const load = async()=>{ if(!projectId) return; setLoading(true); try{setItems(await DeployApi.list(projectId))}catch(e:any){addToast(formatApiError(e),"error")}finally{setLoading(false)} };
   useEffect(()=>{load()},[projectId]);
-  const create = async()=>{ if(!projectId) return; try{await DeployApi.create(projectId,form);addToast("Pipeline created","success");setShow(false);setForm({name:"",region:"us-central1",description:"",stages:[{name:"dev",targetId:"dev-cluster",profiles:[]}]});load()}catch(e:any){addToast(e.message,"error")} };
-  const del = async(id:string)=>{ if(!projectId) return; try{await DeployApi.delete(projectId,id);addToast("Deleted","success");load()}catch(e:any){addToast(e.message,"error")} };
+  const create = async()=>{ if(!projectId) return; try{await DeployApi.create(projectId,form);addToast("Pipeline created","success");setShow(false);setForm({name:"",region:"us-central1",description:"",stages:[{name:"dev",targetId:"dev-cluster",profiles:[]}]});load()}catch(e:any){addToast(formatApiError(e),"error")} };
+  const del = async(id:string)=>{ if(!projectId) return; try{await DeployApi.delete(projectId,id);addToast("Deleted","success");load()}catch(e:any){addToast(formatApiError(e),"error")} };
   const addStage = () => setForm({...form, stages:[...form.stages, {name:"",targetId:"",profiles:[]}]});
   const removeStage = (idx:number) => setForm({...form, stages: form.stages.filter((_:any,i:number)=>i!==idx)});
   const updateStage = (idx:number, field:string, val:string) => {
@@ -29,6 +29,7 @@ export function CloudDeployPanelPanel() {
     {show&&<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"><div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
       <h2 className="text-lg font-semibold">Create Delivery Pipeline</h2>
       <input className="input-field" placeholder="Pipeline name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
+      <p className="text-xs text-gcp-muted mt-0.5">Lowercase letters, digits, hyphens (e.g. my-pipeline)</p>
       <select className="input-field" value={form.region} onChange={e=>setForm({...form,region:e.target.value})}>
         <option value="us-central1">us-central1</option><option value="us-east1">us-east1</option>
         <option value="europe-west1">europe-west1</option><option value="asia-east1">asia-east1</option></select>

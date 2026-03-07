@@ -46,6 +46,22 @@ export function storeTokens(accessToken: string, refreshToken: string): void {
   localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
 }
 
+// ── Error formatting helper ──────────────────────────────────────────────────
+// For VALIDATION_ERROR, surfaces the first field-level message so users know
+// exactly which field failed — not just "Request validation failed".
+export function formatApiError(err: unknown): string {
+  if (!(err instanceof APIError)) return String((err as any)?.message ?? err);
+  if (err.code === "VALIDATION_ERROR" && err.details && typeof err.details === "object") {
+    const fieldErrors = err.details as Record<string, string[]>;
+    const first = Object.entries(fieldErrors).find(([, msgs]) => msgs?.length > 0);
+    if (first) {
+      const [field, msgs] = first;
+      return `${field}: ${msgs[0]}`;
+    }
+  }
+  return err.message;
+}
+
 export function clearTokens(): void {
   if (!isBrowser) return;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
