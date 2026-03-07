@@ -52,6 +52,28 @@ export function clearTokens(): void {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
+// ── Safe JSON parser ──────────────────────────────────────────────────────────
+// Render free tier returns an HTML "spinning up" page before the server is
+// ready. Calling res.json() on that throws:
+//   "Unexpected token '<', "<!DOCTYPE "... is not valid JSON"
+// safeJson() checks the content-type first and throws a clear APIError instead.
+
+async function safeJson(res: Response): Promise<any> {
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("application/json")) {
+    const preview = await res.text().then(t => t.slice(0, 120)).catch(() => "(unreadable)");
+    const isSpinUp = preview.includes("DOCTYPE") || preview.includes("<html");
+    throw new APIError(
+      "NON_JSON_RESPONSE",
+      isSpinUp
+        ? `API server is starting up (Render free tier spin-up). Wait 30–60 s and retry. (${API_BASE})`
+        : `Expected JSON but got "${ct || "unknown content-type"}" — is NEXT_PUBLIC_API_URL set correctly? (${API_BASE})`,
+      res.status,
+    );
+  }
+  return res.json();
+}
+
 // Prevents multiple simultaneous refresh calls
 let refreshPromise: Promise<string> | null = null;
 
@@ -64,7 +86,7 @@ async function refreshAccessToken(): Promise<string> {
     headers: { "Content-Type": "application/json" },
     body:    JSON.stringify({ refreshToken }),
   });
-  const body = await res.json();
+  const body = await safeJson(res);
 
   if (!res.ok || !body.success) {
     clearTokens();
@@ -132,7 +154,7 @@ async function apiFetch<T>(
     throw new APIError(code ?? "UNAUTHORIZED", (body as any).error?.message ?? "Unauthorized", 401);
   }
 
-  const body: ApiResponse<T> = await res.json();
+  const body: ApiResponse<T> = await safeJson(res);
 
   if (!body.success) {
     throw new APIError(body.error!.code, body.error!.message, res.status, body.error!.details);
@@ -191,7 +213,7 @@ async function apiFetchPaged<T>(
     throw new APIError(code ?? "UNAUTHORIZED", body?.error?.message ?? "Unauthorized", 401);
   }
 
-  const body = await res.json();
+  const body = await safeJson(res);
   if (!body.success) {
     throw new APIError(body.error!.code, body.error!.message, res.status, body.error!.details);
   }
