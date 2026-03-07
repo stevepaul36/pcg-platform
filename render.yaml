@@ -90,6 +90,9 @@ services:
         value: production
       - key: PORT
         value: "3000"
+      # NEXT_PUBLIC_API_URL is baked into the Next.js build at compile time.
+      # If Render assigns a different URL (e.g. pcg-api-xxxx.onrender.com),
+      # update this value AND trigger a manual redeploy of pcg-web.
       - key: NEXT_PUBLIC_API_URL
         value: https://pcg-api.onrender.com/api/v1
     autoDeploy: true

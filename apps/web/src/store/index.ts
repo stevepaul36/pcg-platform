@@ -191,7 +191,7 @@ export const useStore = create<Store>()(
           if (me.projects[0]) {
             set(s => {
               s.projectId     = me.projects[0].id;
-              s.projectName   = me.projects[0].name;
+              s.projectName   = me.projects[0].displayName ?? me.projects[0].name;
               s.totalSpendUSD = me.projects[0].totalSpendUSD ?? 0;
             });
           }
@@ -215,7 +215,7 @@ export const useStore = create<Store>()(
           if (me.projects[0]) {
             set(s => {
               s.projectId     = me.projects[0].id;
-              s.projectName   = me.projects[0].name;
+              s.projectName   = me.projects[0].displayName ?? me.projects[0].name;
               s.totalSpendUSD = me.projects[0].totalSpendUSD ?? 0;
             });
           }

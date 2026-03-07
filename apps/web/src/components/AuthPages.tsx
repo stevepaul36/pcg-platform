@@ -33,18 +33,28 @@ export function AuthPages() {
 }
 
 function ErrorBox({ error }: { error: string }) {
-  const isNetwork = error.includes("Cannot reach");
+  const isNetwork  = error.includes("Cannot reach");
+  const isSpinUp   = error.includes("starting up") || error.includes("spin-up");
+  const isNonJson  = error.includes("NON_JSON") || error.includes("Expected JSON");
+  const isWarning  = isNetwork || isSpinUp || isNonJson;
   return (
-    <div className={`text-sm p-3 rounded-md border ${isNetwork ? "bg-orange-50 border-orange-200 text-orange-800" : "bg-red-50 border-red-200 text-gcp-red"}`}>
+    <div className={`text-sm p-3 rounded-md border ${isWarning ? "bg-orange-50 border-orange-200 text-orange-800" : "bg-red-50 border-red-200 text-gcp-red"}`}>
       <div className="flex items-start gap-2">
         <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
         <div>
-          <p className="font-medium">{isNetwork ? "API server unreachable" : error}</p>
-          {isNetwork && (
+          {isSpinUp ? (
             <>
-              <p className="text-xs mt-1 opacity-80">{error}</p>
-              <p className="text-xs mt-1 font-semibold">Fix: In Render Dashboard → pcg-api → Environment → set CORS_ORIGINS to your pcg-web URL.</p>
+              <p className="font-medium">API server is waking up…</p>
+              <p className="text-xs mt-1 opacity-80">Render free tier spins down after inactivity. Wait 30–60 s then try again.</p>
             </>
+          ) : isNetwork ? (
+            <>
+              <p className="font-medium">API server unreachable</p>
+              <p className="text-xs mt-1 opacity-80">{error}</p>
+              <p className="text-xs mt-1 font-semibold">Fix: Render Dashboard → pcg-api → Environment → set CORS_ORIGINS to your pcg-web URL.</p>
+            </>
+          ) : (
+            <p className="font-medium">{error}</p>
           )}
         </div>
       </div>
