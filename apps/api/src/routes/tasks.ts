@@ -28,12 +28,12 @@ tasksRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, async
 
     const queue = await prisma.taskQueue.create({
       data: {
-        projectId:       req.params.projectId,
-        name:            body.name,
-        maxDispatches:   body.maxDispatches,
-        maxConcurrent:   body.maxConcurrent,
-        maxRetries:      body.maxRetries,
-        maxBackoffSec:   body.maxBackoffSec,
+        projectId:          req.params.projectId,
+        name:               body.name,
+        region:             body.region,
+        rateLimitPerSecond: body.rateLimitPerSecond,
+        maxConcurrent:      body.maxConcurrent,
+        retryMaxAttempts:   body.retryMaxAttempts,
       },
     });
 

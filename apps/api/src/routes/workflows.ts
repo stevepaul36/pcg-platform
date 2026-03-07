@@ -31,7 +31,7 @@ workflowsRouter.post("/:projectId", requireProjectAccess, requireProjectWrite, a
         name:        body.name,
         description: body.description,
         region:      body.region,
-        source:      body.source,
+        sourceCode:  body.sourceCode,
       },
     });
 

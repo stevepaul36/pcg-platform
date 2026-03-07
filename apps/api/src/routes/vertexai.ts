@@ -37,7 +37,6 @@ vertexRouter.post("/:projectId/models", requireProjectAccess, requireProjectWrit
         displayName:  body.displayName,
         region:       body.region,
         framework:    body.framework,
-        containerUri: body.containerUri,
         status:       "UPLOADING",
         versionId:    "1",
       },
